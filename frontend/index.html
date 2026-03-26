@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Air Quality</title>
+</head>
+<body>
+    <h1>Air Quality Data</h1>
+    <button onclick="loadData()">Load Data</button>
+    <pre id="data"></pre>
+
+    <script>
+        function loadData() {
+            fetch("http://127.0.0.1:5000/air-quality")
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById("data").innerText = JSON.stringify(data, null, 2);
+                });
+        }
+    </script>
+</body>
+</html>
