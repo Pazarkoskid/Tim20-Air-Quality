@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Air Quality Demo</title>
+  </head>
+  <body>
+    <h1>Air Quality Skopje</h1>
+
+    <button onclick="loadAir(event)">Load Current Air</button>
+    <button onclick="loadPrediction(event)">Load Prediction</button>
+
+    <h3>Result:</h3>
+    <pre id="data"></pre>
+
+    <script>
+      function loadAir(e) {
+        e.preventDefault();
+        fetch("http://localhost:3000/api/air")
+          .then((res) => res.json())
+          .then((data) => {
+            document.getElementById("data").innerText = JSON.stringify(
+              data,
+              null,
+              2,
+            );
+          });
+      }
+
+      function loadPrediction(e) {
+        e.preventDefault();
+        fetch("http://localhost:3000/api/predictions")
+          .then((res) => res.json())
+          .then((data) => {
+            document.getElementById("data").innerText = JSON.stringify(
+              data,
+              null,
+              2,
+            );
+          });
+      }
+    </script>
+  </body>
+</html>
