@@ -1,0 +1,18 @@
+{
+  "selected_features": [
+    "pm10",
+    "pm2_5",
+    "aqi",
+    "hour_sin",
+    "hour_cos",
+    "day_sin",
+    "day_cos",
+    "pm10_diff1",
+    "pm10_absdiff1",
+    "pm2_5_diff1",
+    "co_diff3",
+    "pm10_roll3_std",
+    "co_diff1",
+    "pm10_diff3"
+  ]
+}
