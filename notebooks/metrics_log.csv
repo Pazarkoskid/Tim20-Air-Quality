@@ -1,0 +1,2 @@
+date,model_name,lookback,horizon,num_features,selected_features,mae,rmse,smape,peak_mae,ramp_mae,notes
+2026-03-27 17:10:51,LEAN_CNN_BiLSTM_Attn_PeakRampLoss,48,24,14,"pm10, pm2_5, aqi, hour_sin, hour_cos, day_sin, day_cos, pm10_diff1, pm10_absdiff1, pm2_5_diff1, co_diff3, pm10_roll3_std, co_diff1, pm10_diff3",3.3295,6.3229,41.2847,6.41,0.4842,Chronological split; RobustScaler; lean CNN+BiLSTM+attention pooling

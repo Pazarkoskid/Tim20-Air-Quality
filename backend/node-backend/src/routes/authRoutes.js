@@ -1,14 +1,13 @@
 const express = require("express");
 const router = express.Router();
-
-const userController = require("../controllers/userController");
+const authController = require("../controllers/authController");
 
 /**
  * @swagger
- * /api/users/register:
+ * /api/auth/login:
  *   post:
- *     summary: Register a new user
- *     tags: [Users]
+ *     summary: Login user
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
@@ -16,9 +15,6 @@ const userController = require("../controllers/userController");
  *           schema:
  *             type: object
  *             properties:
- *               name:
- *                 type: string
- *                 example: Ivan
  *               email:
  *                 type: string
  *                 example: ivan@gmail.com
@@ -27,8 +23,8 @@ const userController = require("../controllers/userController");
  *                 example: 123456
  *     responses:
  *       200:
- *         description: User registered successfully
+ *         description: Login successful
  */
-router.post("/register", userController.register);
+router.post("/login", authController.login);
 
 module.exports = router;

@@ -1,23 +1,17 @@
-const db = require("../database/db");
-const bcrypt = require("bcrypt");
+const userService = require("../services/userService");
 
 exports.register = async (req, res) => {
-  const { name, email, password } = req.body;
+    try {
+        const { name, email, password } = req.body;
 
-  const hashed = await bcrypt.hash(password, 10);
+        if (!name || !email || !password) {
+            return res.status(400).json("All fields are required");
+        }
 
-  db.run(
-    `INSERT INTO Users (name, email, password)
-     VALUES (?, ?, ?)`,
-    [name, email, hashed],
-    function (err) {
-      if (err) return res.status(500).json(err.message);
+        const user = await userService.createUser(name, email, password);
 
-      res.json({
-        id: this.lastID,
-        name,
-        email,
-      });
-    },
-  );
+        res.status(201).json(user);
+    } catch (err) {
+        res.status(500).json(err);
+    }
 };
