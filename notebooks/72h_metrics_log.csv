@@ -1,0 +1,2 @@
+date,model_name,lookback,horizon,offset,target_window,num_features,selected_features,mae,rmse,smape,peak_mae,ramp_mae,notes
+2026-03-31 18:28:53,LEAN_CNN_BiLSTM_Attn_PeakRampLoss_h49_72,48,24,48,t+49..t+72,15,"pm10, pm2_5, aqi, hour_sin, hour_cos, day_sin, day_cos, co, co_roll24_mean, no2_roll24_mean, no2_roll24_std, co_roll24_std, aqi_roll24_mean, pm10_roll24_std, pm10_diff1",6.0296,9.2615,69.5458,8.7297,0.4434,Chronological split; RobustScaler; shifted target offset=48
