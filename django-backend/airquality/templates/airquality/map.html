@@ -1,0 +1,202 @@
+{% extends "airquality/base.html" %}
+{% load l10n %}
+{% block title %} | Мапа{% endblock %}
+{% block page_title %}Мапа на загаденост{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  #map { height: calc(100vh - 200px); min-height: 500px; border-radius: 12px; background: #111;}
+  .map-panel { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); transition: all .15s; }
+  .filter-chip.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .map-controls { display: grid; grid-template-columns: 220px 1fr; gap: 16px; margin-bottom: 16px; }
+  #stations-values { margin-top:16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="map-controls">
+  <!-- Filter panel -->
+  <div class="map-panel">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Филтри на мапа</div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Избери загадувач</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span class="filter-chip active" data-layer="pm25">● PM2.5</span>
+        <span class="filter-chip active" data-layer="pm10">● PM10</span>
+        <span class="filter-chip active" data-layer="no2">● NO2</span>
+        <span class="filter-chip active" data-layer="co">● CO</span>
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Слоеви</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;">
+        <input type="checkbox" checked id="chk-stations"/> Мерни станици
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+        <input type="checkbox" checked id="chk-heatmap"/> Heatmap приказ
+      </label>
+    </div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<div class="map-panel" id="stations-values">
+    <!-- JS ќе пополни овде -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+window.addEventListener('load', function() {
+    const API_KEY = "{{ openweather_key }}";
+
+    // 1️⃣ Иницијализирај ја мапата
+    const map = L.map('map', { zoomControl: true }).setView([41.9981, 21.4254], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    // 2️⃣ Општини
+    const municipalities = [
+      { name: "Aerodrom", lat: 41.98333, lon: 21.46667 },
+      { name: "Butel", lat: 42.00000, lon: 21.47000 },
+      { name: "Gazi Baba", lat: 42.01629, lon: 21.49913 },
+      { name: "Čair", lat: 42.01059, lon: 21.44009 },
+      { name: "Centar", lat: 41.9981, lon: 21.4284 },
+      { name: "Karpoš", lat: 42.0000, lon: 21.4085 },
+      { name: "Kisela Voda", lat: 41.9797, lon: 21.4412 },
+<!--      { name: "Šuto Orizari", lat: 42.0060, lon: 21.4835 },-->
+      { name: "Gjorče Petrov", lat: 42.0078, lon: 21.3606 },
+      { name: "Saraj", lat: 42.0016, lon: 21.3200 }
+    ];
+
+
+    function aqiColor(aqi) {
+      if (aqi <= 50) return '#3fb68b';
+      if (aqi <= 100) return '#f5c542';
+      if (aqi <= 150) return '#f0884a';
+      if (aqi <= 200) return '#e05050';
+      return '#9b3fc8';
+    }
+
+    function getActiveFilters() {
+        const chips = document.querySelectorAll('.filter-chip');
+        const active = [];
+        chips.forEach(c => { if(c.classList.contains('active')) active.push(c.dataset.layer); });
+        return active;
+    }
+
+
+    const stationLayerGroup = L.layerGroup().addTo(map);
+    const heatmapLayerGroup = L.layerGroup().addTo(map);
+
+    async function loadStations() {
+        for (let m of municipalities) {
+            try {
+                const res = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${m.lat}&lon=${m.lon}&appid=${API_KEY}`);
+                const data = await res.json();
+                const air = data.list[0];
+
+                m.pm25 = air.components.pm2_5;
+                m.pm10 = air.components.pm10;
+                m.no2 = air.components.no2;
+                m.co = air.components.co;
+                m.aqi = air.main.aqi * 50;
+            } catch(e) {
+                console.log("API failed for", m.name, ", using mock data");
+                m.pm25 = Math.random()*50;
+                m.pm10 = Math.random()*60;
+                m.no2 = Math.random()*40;
+                m.co = Math.random()*300;
+                m.aqi = Math.floor(Math.random()*150);
+            }
+        }
+        updateMap();
+    }
+
+    function updateMap() {
+        stationLayerGroup.clearLayers();
+        heatmapLayerGroup.clearLayers();
+        const activeFilters = getActiveFilters();
+
+        municipalities.forEach(m => {
+            // Пресметка на просек според активните филтри
+            let total = 0, count = 0;
+            activeFilters.forEach(f => { total += m[f]; count++; });
+            const avg = count>0 ? total/count : m.aqi;
+
+            // Heatmap circle
+            if(document.getElementById('chk-heatmap').checked){
+                L.circle([m.lat,m.lon],{
+                    radius: 1500,
+                    color: aqiColor(avg),
+                    fillColor: aqiColor(avg),
+                    fillOpacity: 0.2,
+                    weight: 0
+                }).addTo(heatmapLayerGroup);
+            }
+
+            // Marker
+            if(document.getElementById('chk-stations').checked){
+                L.marker([m.lat,m.lon],{
+                    icon: L.divIcon({
+                        html: `<div style="background:${aqiColor(avg)};color:#fff;font-weight:700;font-size:12px;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);">${Math.round(avg)}</div>`,
+                        className:'',
+                        iconSize:[36,36],
+                        iconAnchor:[18,18]
+                    })
+                }).addTo(stationLayerGroup)
+                  .bindPopup(`<strong>${m.name}</strong><br/>AQI: ${Math.round(avg)}`)
+                  .on('click',()=>{ map.setView([m.lat,m.lon],14); });
+            }
+        });
+
+        // Popolni side panel
+        const container = document.getElementById('stations-values');
+        container.innerHTML = '';
+        municipalities.forEach(m=>{
+            let total = 0, count=0;
+            const activeFilters = getActiveFilters();
+            activeFilters.forEach(f => { total += m[f]; count++; });
+            const avg = count>0 ? total/count : m.aqi;
+
+            const div = document.createElement('div');
+            div.style.backgroundColor = '#1e1e1e';
+            div.style.padding = '8px';
+            div.style.borderRadius = '8px';
+            div.style.color = '#fff';
+            div.style.textAlign = 'center';
+            div.innerHTML = `
+                <strong>${m.name}</strong><br/>
+                AQI: ${Math.round(avg)}<br/>
+                ${activeFilters.includes('pm25')?`PM2.5: ${m.pm25.toFixed(1)} µg/m³<br/>`:""}
+                ${activeFilters.includes('pm10')?`PM10: ${m.pm10.toFixed(1)} µg/m³<br/>`:""}
+                ${activeFilters.includes('no2')?`NO₂: ${m.no2.toFixed(1)} µg/m³<br/>`:""}
+                ${activeFilters.includes('co')?`CO: ${m.co.toFixed(1)} µg/m³<br/>`:""}
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // 5️⃣ Filter chip click
+    document.querySelectorAll('.filter-chip').forEach(chip=>{
+        chip.addEventListener('click',()=>{
+            chip.classList.toggle('active');
+            updateMap();
+        });
+    });
+    document.getElementById('chk-stations').addEventListener('change',updateMap);
+    document.getElementById('chk-heatmap').addEventListener('change',updateMap);
+
+    loadStations();
+});
+</script>
+{% endblock %}

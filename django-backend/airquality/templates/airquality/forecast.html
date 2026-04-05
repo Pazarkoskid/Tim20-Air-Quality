@@ -1,0 +1,149 @@
+{% extends "airquality/base.html" %}
+{% block title %} | Прогноза{% endblock %}
+{% block page_title %}Прогноза и AI Увиди{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'api_forecast' %}" class="topbar-btn">📥 JSON Извоз</a>
+{% endblock %}
+
+{% block content %}
+<!-- Snapshot cards -->
+<div class="grid-3 mb-20">
+  {% for snap, label in forecast_snaps %}
+  <div class="card" style="text-align:center;">
+    <div class="card-title" style="margin-bottom:6px;">{{ label }}</div>
+    {% if snap %}
+    <div style="font-size:40px;font-weight:700;font-family:'Space Grotesk',sans-serif;
+      {% if snap.predicted_aqi > 150 %}color:var(--unhealthy){% elif snap.predicted_aqi > 100 %}color:var(--sensitive){% elif snap.predicted_aqi > 50 %}color:var(--moderate){% else %}color:var(--good){% endif %}">
+      {{ snap.predicted_aqi|floatformat:0 }}
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+      PM2.5: {{ snap.predicted_pm25|floatformat:1|default:"–" }} µg/m³
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+      Доверба: {{ snap.confidence|floatformat:0 }}%
+    </div>
+    {% else %}
+    <div style="color:var(--text-muted);padding:20px;">–</div>
+    {% endif %}
+  </div>
+  {% empty %}
+  {% for snap, label in default_snaps %}
+  <div class="card" style="text-align:center;">
+    <div class="card-title">{{ label }}</div>
+    {% if snap %}
+    <div style="font-size:40px;font-weight:700;font-family:'Space Grotesk',sans-serif;color:var(--moderate);">{{ snap.predicted_aqi|floatformat:0 }}</div>
+    <div style="font-size:12px;color:var(--text-muted);">PM2.5: {{ snap.predicted_pm25|floatformat:1|default:"–" }} µg/m³</div>
+    {% else %}<div style="color:var(--text-muted);padding:20px;">Нема податоци</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+</div>
+
+<!-- Chart -->
+<div class="card mb-20">
+  <div class="flex items-center justify-between" style="margin-bottom:14px;">
+    <div>
+      <div style="font-size:15px;font-weight:600;">Предвидувања на PM2.5 (µg/m³)</div>
+      <div style="font-size:12px;color:var(--text-muted);">Споредба помеѓу реални мерења и машинско учење</div>
+    </div>
+    <span style="font-size:12px;background:rgba(46,168,213,.1);color:var(--accent);padding:4px 10px;border-radius:6px;border:1px solid rgba(46,168,213,.2);">🤖 AI Модел v2.4</span>
+  </div>
+  <canvas id="forecastChart" style="max-height:220px;"></canvas>
+</div>
+
+<!-- Key events table -->
+<div class="card mb-20">
+  <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Клучни временски точки</div>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Нагласени промени на квалитетот на воздух во претстојниот период.</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Време</th>
+        <th>Предвидено</th>
+        <th>Статус</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in key_forecasts %}
+      <tr>
+        <td class="font-mono">{{ f.forecast_time|date:"d.m H:i" }}</td>
+        <td>AQI <strong>{{ f.predicted_aqi|floatformat:0 }}</strong> / PM2.5 {{ f.predicted_pm25|floatformat:1|default:"–" }} µg/m³</td>
+        <td>
+          {% if f.predicted_aqi > 150 %}<span class="aqi-pill pill-unhealthy">Нездрав</span>
+          {% elif f.predicted_aqi > 100 %}<span class="aqi-pill pill-sensitive">Умерено загаден</span>
+          {% elif f.predicted_aqi > 50 %}<span class="aqi-pill pill-moderate">Умерено</span>
+          {% else %}<span class="aqi-pill pill-good">Добар</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      {% for f in forecasts|slice:":8" %}
+      <tr>
+        <td class="font-mono">{{ f.forecast_time|date:"d.m H:i" }}</td>
+        <td>AQI <strong>{{ f.predicted_aqi|floatformat:0 }}</strong> / PM2.5 {{ f.predicted_pm25|floatformat:1|default:"–" }} µg/m³</td>
+        <td>
+          {% if f.predicted_aqi > 150 %}<span class="aqi-pill pill-unhealthy">Нездрав</span>
+          {% elif f.predicted_aqi > 100 %}<span class="aqi-pill pill-sensitive">Умерено загаден</span>
+          {% elif f.predicted_aqi > 50 %}<span class="aqi-pill pill-moderate">Умерено</span>
+          {% else %}<span class="aqi-pill pill-good">Добар</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Methodology note -->
+<div class="alert-banner info">
+  <span>📖</span>
+  <div>
+    <strong>Методологија</strong><br/>
+    <span style="font-size:13px;color:var(--text-muted);">
+      Предвидувањата се генерираат со користење на комбиниран модел — линеарна регресија со сезонски корекции базирани на LSTM Long Short-Term Memory и XGBoost, земајќи ги во предвид историските мерења на мерните станици во Скопје и сателитски снимки.
+    </span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {{ labels|safe }};
+const predAqi = {{ pred_aqi|safe }};
+const predPm25 = {{ pred_pm25|safe }};
+const conf = {{ confidence|safe }};
+
+new Chart(document.getElementById('forecastChart'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Предвидено AQI',
+        data: predAqi,
+        borderColor: '#2ea8d5',
+        backgroundColor: 'rgba(46,168,213,0.08)',
+        fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        borderDash: [5, 3],
+      },
+      {
+        label: 'Предвидено PM2.5',
+        data: predPm25,
+        borderColor: '#f0884a',
+        backgroundColor: 'transparent',
+        fill: false, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        borderDash: [3, 2],
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', maxTicksLimit: 12, font: { size: 10 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', font: { size: 10 } } }
+    }
+  }
+});
+</script>
+{% endblock %}
