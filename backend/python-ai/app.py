@@ -1,37 +1,50 @@
-from flask import Flask, jsonify
-import requests
+from contextlib import asynccontextmanager
+from pathlib import Path
 
-app = Flask(__name__)
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-API_KEY = "7fbee9cf31b0b06d00f62d1200a954e5"
-LAT, LON = 41.9981, 21.4254
+from ml_service import PM10MLService
+from routes import router
 
-@app.route("/")
-def home():
-    return "Air Quality API Running"
 
-@app.route("/air-quality")
-def get_air_quality():
-    url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={API_KEY}"
-    response = requests.get(url)
-    return jsonify(response.json())
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    App lifespan:
+      - Load ML artifacts ONCE at startup
+      - Keep in app.state.ml_service
+      - Cleanup on shutdown
+    """
+    artifacts_root = Path(__file__).parent / "artifacts"
+    service = PM10MLService(artifacts_root=artifacts_root)
+    service.load_all()
+    app.state.ml_service = service
 
-@app.route("/predict")
-def predict():
-    url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={API_KEY}"
-    response = requests.get(url)
-    current_data = response.json()
+    yield
 
-    current_aqi = current_data["list"][0]["main"]["aqi"]
+    service.close()
+    app.state.ml_service = None
 
-    # 3. TODO: replace this with your real ML model prediction
-    predicted_aqi = current_aqi 
 
-    return jsonify({
-        "current_aqi": current_aqi,
-        "prediction_24h": predicted_aqi,
-        "location": "Skopje"
-    })
+app = FastAPI(
+    title="PM10 Forecast API",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# Adjust as needed for your frontend domains
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # lock down in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(router)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "pm10-forecast"}
