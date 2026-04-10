@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Регистрација – Air Quality AI</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap"/>
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--surface2:#1e2530;--border:#30363d;--accent:#2ea8d5;--accent2:#1a6b8a;--text:#e6edf3;--text-muted:#8b949e;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:grid;place-items:center;}
+    .bg-anim{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse at 80% 50%,rgba(46,168,213,.06) 0%,transparent 60%);}
+    .box{position:relative;z-index:1;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:420px;box-shadow:0 24px 80px rgba(0,0,0,.4);}
+    .logo{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:24px;text-align:center;}
+    .logo-icon{width:48px;height:48px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:grid;place-items:center;font-size:24px;}
+    h1{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;}
+    .tabs{display:flex;border:1px solid var(--border);border-radius:8px;margin-bottom:22px;overflow:hidden;}
+    .tab-link{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;color:var(--text-muted);text-decoration:none;transition:all .15s;}
+    .tab-link.active{background:var(--accent);color:#fff;}
+    .form-group{margin-bottom:14px;}
+    label{display:block;font-size:13px;font-weight:500;margin-bottom:5px;color:var(--text-muted);}
+    input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .15s;}
+    input:focus{border-color:var(--accent);}
+    .btn-submit{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px;transition:background .15s;}
+    .btn-submit:hover{background:var(--accent2);}
+    .errorlist{list-style:none;margin-bottom:10px;}
+    .errorlist li{background:rgba(224,80,80,.12);border:1px solid rgba(224,80,80,.3);color:#e05050;padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:4px;}
+    .help-text{font-size:12px;color:var(--text-muted);margin-top:4px;}
+    .footer-links{text-align:center;margin-top:18px;font-size:12px;color:var(--text-muted);}
+    .footer-links a{color:var(--text-muted);margin:0 6px;text-decoration:none;}
+    .footer-links a:hover{color:var(--accent);}
+  </style>
+</head>
+<body>
+<div class="bg-anim"></div>
+<div class="box">
+  <div class="logo">
+    <div class="logo-icon">🌬</div>
+    <h1>Air Quality AI – Скопје</h1>
+  </div>
+  <div class="tabs">
+    <a href="{% url 'login' %}" class="tab-link">Најава</a>
+    <a href="{% url 'register' %}" class="tab-link active">Регистрација</a>
+  </div>
+  <p style="font-size:18px;font-weight:600;margin-bottom:16px;">Креирај сметка</p>
+
+  <form method="POST">
+    {% csrf_token %}
+    <div class="form-group">
+      <label>Корисничко ime</label>
+      {{ form.username }}
+      {% if form.username.errors %}<ul class="errorlist">{% for e in form.username.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label>Е-пошта</label>
+      {{ form.email }}
+      {% if form.email.errors %}<ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label>Лозинка</label>
+      {{ form.password1 }}
+      {% if form.password1.errors %}<ul class="errorlist">{% for e in form.password1.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label>Потврди лозинка</label>
+      {{ form.password2 }}
+      {% if form.password2.errors %}<ul class="errorlist">{% for e in form.password2.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% if form.non_field_errors %}<ul class="errorlist">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <button type="submit" class="btn-submit">Регистрирај се</button>
+  </form>
+  <div class="footer-links">
+    <a href="#">Политика за приватност</a>
+    <a href="#">Услови за користење</a>
+    <a href="#">Контакт</a>
+  </div>
+</div>
+<style>
+  input[type=text],input[type=email],input[type=password]{display:block;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
+  input:focus{border-color:var(--accent);}
+</style>
+</body>
+</html>

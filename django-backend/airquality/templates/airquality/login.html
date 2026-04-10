@@ -1,0 +1,94 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Најава – Air Quality AI Скопје</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"/>
+  <style>
+    :root { --bg:#0d1117; --surface:#161b22; --surface2:#1e2530; --border:#30363d; --accent:#2ea8d5; --accent2:#1a6b8a; --text:#e6edf3; --text-muted:#8b949e; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:grid;place-items:center;position:relative;overflow:hidden;}
+    /* animated background particles */
+    .bg-anim { position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse at 20% 50%,rgba(46,168,213,.06) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(26,107,138,.08) 0%,transparent 50%); }
+    .login-box { position:relative;z-index:1;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:420px;box-shadow:0 24px 80px rgba(0,0,0,.4); }
+    .logo { display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:28px;text-align:center; }
+    .logo-icon { width:52px;height:52px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:14px;display:grid;place-items:center;font-size:26px; }
+    h1 { font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin-top:4px; }
+    .subtitle { color:var(--text-muted);font-size:14px; }
+    .tabs { display:flex;border:1px solid var(--border);border-radius:8px;margin-bottom:24px;overflow:hidden; }
+    .tab-link { flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;color:var(--text-muted);text-decoration:none;background:transparent;transition:all .15s; }
+    .tab-link.active { background:var(--accent);color:#fff; }
+    .form-group{margin-bottom:16px;}
+    label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--text-muted);}
+    input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .15s;}
+    input:focus{border-color:var(--accent);}
+    .btn-submit{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;margin-top:4px;}
+    .btn-submit:hover{background:var(--accent2);}
+    .secure-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;font-size:12px;color:var(--text-muted);}
+    .social-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;}
+    .social-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;}
+    .social-btn:hover{border-color:var(--accent);}
+    .divider{text-align:center;margin:16px 0;color:var(--text-muted);font-size:12px;position:relative;}
+    .divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--border);}
+    .divider::before{left:0;} .divider::after{right:0;}
+    .errorlist{list-style:none;margin-bottom:12px;}
+    .errorlist li{background:rgba(224,80,80,.12);border:1px solid rgba(224,80,80,.3);color:#e05050;padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:6px;}
+    .footer-links{text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted);}
+    .footer-links a{color:var(--text-muted);margin:0 8px;text-decoration:none;}
+    .footer-links a:hover{color:var(--accent);}
+  </style>
+</head>
+<body>
+<div class="bg-anim"></div>
+<div class="login-box">
+  <div class="logo">
+    <div class="logo-icon">🌬</div>
+    <h1>Air Quality AI</h1>
+    <p class="subtitle">Следете го квалитетот на воздухот во реално време со помош на вештачка интелигенција.</p>
+  </div>
+
+  <div class="tabs">
+    <a href="{% url 'login' %}" class="tab-link active">Најава</a>
+    <a href="{% url 'register' %}" class="tab-link">Регистрација</a>
+  </div>
+
+  <p style="font-size:18px;font-weight:600;margin-bottom:16px;">Добредојдовте назад</p>
+  <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Внесете ги вашите податоци за да пристапите до контролната табла.</p>
+
+  {% if form.errors %}
+  <ul class="errorlist">
+    <li>Неточно корисничко ime или лозинка. Обидете се повторно.</li>
+  </ul>
+  {% endif %}
+
+  <form method="POST">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}"/>
+    <div class="form-group">
+      <label>Е-пошта</label>
+      <input type="text" name="username" placeholder="name@example.com" required autocomplete="username"/>
+    </div>
+    <div class="form-group">
+      <label>Лозинка <a href="#" style="float:right;font-size:12px;color:var(--accent);text-decoration:none;">Заборавена лозинка?</a></label>
+      <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password"/>
+    </div>
+    <button type="submit" class="btn-submit">Најави се</button>
+  </form>
+
+  <div class="secure-note">✅ Вашите податоци се заштитени со енкрипција.</div>
+  <div class="divider">или</div>
+  <div class="social-row">
+    <button class="social-btn">🔵 Google</button>
+    <button class="social-btn">🍎 Apple</button>
+  </div>
+
+  <div class="footer-links">
+    <a href="#">Помош</a>
+    <a href="#">Институции</a>
+    <a href="#">Мерни станици</a>
+  </div>
+</div>
+</body>
+</html>
