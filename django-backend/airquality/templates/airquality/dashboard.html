@@ -1,0 +1,198 @@
+{% extends "airquality/base.html" %}
+
+{% block title %} | Контролна табла{% endblock %}
+{% block page_title %}Контролна табла{% endblock %}
+
+{% block topbar_actions %}
+<span style="font-size:12px;color:var(--text-muted);">
+  🕒 Последно ажурирање: {% if latest %}{{ latest.timestamp|date:"d.m.Y H:i" }}{% else %}–{% endif %}
+</span>
+{% endblock %}
+
+{% block content %}
+
+{% if latest and latest.aqi >= 150 %}
+<div class="alert-banner danger">
+  <span style="font-size:20px;">⚠️</span>
+  <div>
+    <strong>Предупредување за висока загаденост!</strong><br/>
+    <span style="font-size:13px;color:var(--text-muted);">
+      Концентрацијата на загадувачите е над дозволените граници. Препорачуваме намалена активност на отворено.
+    </span>
+  </div>
+  <a href="{% url 'notifications' %}" style="margin-left:auto;white-space:nowrap;font-size:13px;color:var(--accent);text-decoration:none;">Детали →</a>
+</div>
+{% elif latest and latest.aqi >= 100 %}
+<div class="alert-banner warning">
+  <span style="font-size:20px;">⚠️</span>
+  <div>
+    <strong>Умерена загаденост на воздухот</strong><br/>
+    <span style="font-size:13px;color:var(--text-muted);">
+      Чувствителни групи треба да ги намалат активностите на отворено.
+    </span>
+  </div>
+</div>
+{% endif %}
+
+<!-- AQI + Pollutants row -->
+<div style="display:grid;grid-template-columns:300px 1fr 260px;gap:16px;margin-bottom:20px;">
+
+  <!-- AQI Card -->
+  <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+    <div class="card-title">Индекс на квалитет на воздух (AQI)</div>
+    <div style="font-size:11px;color:var(--text-muted);">Моментална состојба во Скопскиот регион</div>
+    {% if latest %}
+    <div style="display:flex;align-items:flex-end;gap:12px;">
+      <span class="aqi-big aqi-{{ latest.aqi_label.1 }}">{{ latest.aqi|floatformat:0 }}</span>
+      <span class="aqi-pill pill-{{ latest.aqi_label.1 }}" style="margin-bottom:8px;">{{ latest.aqi_label.0 }}</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);">Главен загадувач: <strong style="color:var(--text);">PM 2.5</strong></div>
+    <div style="font-size:13px;color:var(--text-muted);line-height:1.5;">
+      Квалитетот на воздухот е нездрав за чувствителни групи. Избегнувајте долги периоди на сторени активности на отворено.
+    </div>
+    {% else %}
+    <div style="color:var(--text-muted);">Нема податоци. <a href="{% url 'api_refresh' %}" style="color:var(--accent);">Освежи</a></div>
+    {% endif %}
+  </div>
+
+  <!-- Pollutants grid -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px;">Загадувачи</div>
+    {% if latest %}
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+      <div class="stat-tile">
+        <span class="label">PM 2.5</span>
+        <span class="value" style="color:var(--sensitive);">{{ latest.pm25|floatformat:1|default:"–" }}</span>
+        <span class="unit">µg/m³</span>
+      </div>
+      <div class="stat-tile">
+        <span class="label">PM 10</span>
+        <span class="value" style="color:var(--moderate);">{{ latest.pm10|floatformat:1|default:"–" }}</span>
+        <span class="unit">µg/m³</span>
+      </div>
+      <div class="stat-tile">
+        <span class="label">NO₂</span>
+        <span class="value" style="color:var(--good);">{{ latest.no2|floatformat:1|default:"–" }}</span>
+        <span class="unit">µg/m³</span>
+      </div>
+      <div class="stat-tile">
+        <span class="label">CO</span>
+        <span class="value" style="color:var(--good);">{{ latest.co|floatformat:1|default:"–" }}</span>
+        <span class="unit">µg/m³</span>
+      </div>
+      <div class="stat-tile">
+        <span class="label">O₃</span>
+        <span class="value">{{ latest.o3|floatformat:1|default:"–" }}</span>
+        <span class="unit">µg/m³</span>
+      </div>
+      <div class="stat-tile">
+        <span class="label">SO₂</span>
+        <span class="value">{{ latest.so2|floatformat:1|default:"–" }}</span>
+        <span class="unit">µg/m³</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Forecast summary -->
+  <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+    <div class="flex items-center justify-between mb-16">
+      <div class="card-title">🔮 Прогноза 72 часа</div>
+      <a href="{% url 'forecast' %}" style="font-size:12px;color:var(--accent);text-decoration:none;">Детали →</a>
+    </div>
+    {% for label, val in forecast_tiles %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      <span style="font-size:13px;color:var(--text-muted);">{{ label }}</span>
+      {% if val %}
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;{% if val > 150 %}color:var(--unhealthy){% elif val > 100 %}color:var(--sensitive){% elif val > 50 %}color:var(--moderate){% else %}color:var(--good){% endif %}">{{ val }}</span>
+      {% else %}
+      <span style="color:var(--text-muted);">–</span>
+      {% endif %}
+    </div>
+    {% empty %}
+    {% if forecast_24 %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      <span style="font-size:13px;color:var(--text-muted);">24ч просек</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--sensitive);">{{ forecast_24 }}</span>
+    </div>
+    {% endif %}
+    {% if forecast_48 %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      <span style="font-size:13px;color:var(--text-muted);">48ч просек</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--moderate);">{{ forecast_48 }}</span>
+    </div>
+    {% endif %}
+    {% if forecast_72 %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      <span style="font-size:13px;color:var(--text-muted);">72ч просек</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--good);">{{ forecast_72 }}</span>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<!-- 24h Chart -->
+<div class="card mb-20">
+  <div class="flex items-center justify-between" style="margin-bottom:16px;">
+    <div>
+      <div class="card-title">24-часовен тренд</div>
+      <div style="font-size:12px;color:var(--text-muted);">Податоци за AQI индексот во текот на денот</div>
+    </div>
+    <div style="display:flex;gap:16px;font-size:12px;color:var(--text-muted);">
+      <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:var(--accent);display:inline-block;border-radius:2px;"></span>AQI</span>
+      <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:3px;background:var(--sensitive);display:inline-block;border-radius:2px;"></span>PM2.5</span>
+    </div>
+  </div>
+  <canvas id="chartMain" style="max-height:200px;"></canvas>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {{ chart_labels|safe }};
+const aqiData = {{ chart_aqi|safe }};
+const pm25Data = {{ chart_pm25|safe }};
+
+const ctx = document.getElementById('chartMain');
+if (ctx && labels.length) {
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'AQI',
+          data: aqiData,
+          borderColor: '#2ea8d5',
+          backgroundColor: 'rgba(46,168,213,0.08)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 2,
+          borderWidth: 2,
+        },
+        {
+          label: 'PM2.5',
+          data: pm25Data,
+          borderColor: '#f0884a',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.4,
+          pointRadius: 2,
+          borderWidth: 2,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', maxTicksLimit: 12, font: { size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', font: { size: 11 } } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

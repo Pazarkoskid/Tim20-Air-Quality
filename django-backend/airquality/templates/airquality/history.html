@@ -1,0 +1,142 @@
+{% extends "airquality/base.html" %}
+{% block title %} | Историја{% endblock %}
+{% block page_title %}Историја на квалитет на воздух{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'export_csv' %}" class="topbar-btn">📥 CSV</a>
+<a href="{% url 'export_pdf' %}" class="topbar-btn">📄 PDF</a>
+{% endblock %}
+
+{% block content %}
+<!-- Filter bar -->
+<div class="card mb-20">
+  <form method="GET" style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Период</label>
+      {{ form.period }}
+    </div>
+    <div class="form-group" style="margin-bottom:0;" id="custom-dates" style="display:none;">
+      <label>Од</label>
+      {{ form.date_from }}
+    </div>
+    <div class="form-group" style="margin-bottom:0;" id="custom-dates2">
+      <label>До</label>
+      {{ form.date_to }}
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Примени филтри</button>
+    <span style="margin-left:auto;font-size:13px;color:var(--text-muted);">
+      Прикажани {{ records|length }} од вкупно {{ total }} записи
+    </span>
+    <!-- Import -->
+    <form method="POST" action="{% url 'import_csv' %}" enctype="multipart/form-data" style="display:flex;align-items:center;gap:8px;">
+      {% csrf_token %}
+      <input type="file" name="csv_file" accept=".csv" class="form-control" style="max-width:200px;padding:6px 10px;font-size:12px;"/>
+      <button type="submit" class="btn btn-secondary">⬆ Увези</button>
+    </form>
+  </form>
+</div>
+
+<!-- Charts grid -->
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px;">PM2.5 & PM10 (µg/m³)</div>
+    <canvas id="chartParticles" style="max-height:160px;"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px;">NO₂ & CO (µg/m³)</div>
+    <canvas id="chartGases" style="max-height:160px;"></canvas>
+  </div>
+</div>
+
+<!-- Data table -->
+<div class="card">
+  <div class="flex items-center justify-between" style="margin-bottom:14px;">
+    <div>
+      <div style="font-size:15px;font-weight:600;">Детален преглед на записи</div>
+      <div style="font-size:12px;color:var(--text-muted);">{{ period_label }}</div>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Датум/Време</th>
+          <th>PM2.5</th>
+          <th>PM10</th>
+          <th>NO₂</th>
+          <th>CO</th>
+          <th>AQI</th>
+          <th>Статус</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td class="font-mono">{{ r.timestamp|date:"d.m.Y H:i" }}</td>
+          <td>{{ r.pm25|floatformat:2|default:"–" }} µg/m³</td>
+          <td>{{ r.pm10|floatformat:2|default:"–" }} µg/m³</td>
+          <td>{{ r.no2|floatformat:2|default:"–" }} µg/m³</td>
+          <td>{{ r.co|floatformat:2|default:"–" }} µg/m³</td>
+          <td class="font-mono"><strong>{{ r.aqi|floatformat:0 }}</strong></td>
+          <td>
+            <span class="aqi-pill pill-{{ r.aqi_label.1 }}">{{ r.aqi_label.0 }}</span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">Нема записи за избраниот период.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {{ chart_labels|safe }};
+const pm25 = {{ chart_pm25|safe }};
+const pm10 = {{ chart_pm10|safe }};
+const no2  = {{ chart_no2|safe }};
+const co   = {{ chart_co|safe }};
+
+const chartOpts = {
+  responsive: true,
+  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+  scales: {
+    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', maxTicksLimit: 8, font: { size: 10 } } },
+    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', font: { size: 10 } } }
+  }
+};
+
+new Chart(document.getElementById('chartParticles'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      { label: 'PM2.5', data: pm25, borderColor: '#f0884a', backgroundColor: 'rgba(240,136,74,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
+      { label: 'PM10',  data: pm10, borderColor: '#9b3fc8', backgroundColor: 'rgba(155,63,200,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }
+    ]
+  },
+  options: chartOpts
+});
+
+new Chart(document.getElementById('chartGases'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      { label: 'NO₂', data: no2, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
+      { label: 'CO',  data: co,  borderColor: '#3fb68b', backgroundColor: 'rgba(63,182,139,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }
+    ]
+  },
+  options: chartOpts
+});
+
+// Show/hide custom date fields
+document.querySelector('[name=period]')?.addEventListener('change', function() {
+  const show = this.value === 'custom';
+  document.getElementById('custom-dates').style.display = show ? 'block' : 'none';
+  document.getElementById('custom-dates2').style.display = show ? 'block' : 'none';
+});
+</script>
+{% endblock %}

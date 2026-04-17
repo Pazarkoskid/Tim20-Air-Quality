@@ -1,0 +1,333 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Air Quality AI – Скопје{% block title %}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #1e2530;
+      --border: #30363d;
+      --accent: #2ea8d5;
+      --accent2: #1a6b8a;
+      --good: #3fb68b;
+      --moderate: #f5c542;
+      --sensitive: #f0884a;
+      --unhealthy: #e05050;
+      --very-unhealthy: #9b3fc8;
+      --hazardous: #7d1919;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --sidebar-w: 220px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; display: flex; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w); min-height: 100vh; background: var(--surface);
+      border-right: 1px solid var(--border); display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 20px 18px 16px; display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .logo-icon {
+      width: 32px; height: 32px; background: linear-gradient(135deg,var(--accent),var(--accent2));
+      border-radius: 8px; display: grid; place-items: center; font-size: 16px;
+    }
+    .sidebar-logo span { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; color: var(--text); }
+    .sidebar-logo small { display: block; color: var(--text-muted); font-size: 10px; font-weight: 400; }
+
+    nav { flex: 1; padding: 12px 0; }
+    nav a {
+      display: flex; align-items: center; gap: 10px; padding: 10px 18px;
+      color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500;
+      border-left: 3px solid transparent; transition: all .15s;
+    }
+    nav a:hover { color: var(--text); background: var(--surface2); }
+    nav a.active { color: var(--accent); background: rgba(46,168,213,.08); border-left-color: var(--accent); }
+    nav a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+    nav a .badge {
+      margin-left: auto; background: var(--unhealthy); color: #fff;
+      border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 700;
+    }
+
+    .sidebar-footer {
+      padding: 14px 18px; border-top: 1px solid var(--border);
+    }
+    .sidebar-footer a {
+      display: flex; align-items: center; gap: 8px; color: var(--text-muted);
+      text-decoration: none; font-size: 13px;
+    }
+    .sidebar-footer a:hover { color: var(--unhealthy); }
+
+    /* ── Topbar ── */
+    .topbar {
+      position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: 56px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 24px; gap: 12px; z-index: 99;
+    }
+    .topbar-title { font-family: 'Space Grotesk',sans-serif; font-size: 15px; font-weight: 600; flex: 1; }
+    .topbar-actions { display: flex; align-items: center; gap: 8px; }
+    .topbar-btn {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
+      border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px;
+      text-decoration: none; display: flex; align-items: center; gap: 6px;
+      transition: all .15s;
+    }
+    .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .topbar-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .topbar-btn.primary:hover { background: var(--accent2); }
+
+    /* ── Main ── */
+    main { margin-left: var(--sidebar-w); margin-top: 56px; padding: 28px 28px; flex: 1; min-height: calc(100vh - 56px); }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+    }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+
+    /* ── Grid helpers ── */
+    .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; }
+
+    /* ── AQI indicator ── */
+    .aqi-big { font-family: 'Space Grotesk',sans-serif; font-size: 56px; font-weight: 700; line-height: 1; }
+    .aqi-pill {
+      display: inline-block; padding: 3px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .aqi-good { color: var(--good); }
+    .aqi-moderate { color: var(--moderate); }
+    .aqi-sensitive { color: var(--sensitive); }
+    .aqi-unhealthy { color: var(--unhealthy); }
+    .aqi-very-unhealthy { color: var(--very-unhealthy); }
+    .aqi-hazardous { color: var(--hazardous); }
+
+    .pill-good { background: rgba(63,182,139,.15); color: var(--good); }
+    .pill-moderate { background: rgba(245,197,66,.15); color: var(--moderate); }
+    .pill-sensitive { background: rgba(240,136,74,.15); color: var(--sensitive); }
+    .pill-unhealthy { background: rgba(224,80,80,.15); color: var(--unhealthy); }
+    .pill-very-unhealthy { background: rgba(155,63,200,.15); color: var(--very-unhealthy); }
+    .pill-hazardous { background: rgba(125,25,25,.25); color: #ff6b6b; }
+
+    /* ── Stat tile ── */
+    .stat-tile { display: flex; flex-direction: column; gap: 4px; }
+    .stat-tile .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+    .stat-tile .value { font-size: 26px; font-weight: 700; font-family: 'Space Grotesk',sans-serif; }
+    .stat-tile .unit { font-size: 11px; color: var(--text-muted); }
+
+    /* ── Alert banner ── */
+    .alert-banner {
+      display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px;
+      border-radius: 10px; margin-bottom: 20px; font-size: 14px;
+    }
+    .alert-banner.warning { background: rgba(240,136,74,.12); border: 1px solid rgba(240,136,74,.3); }
+    .alert-banner.danger  { background: rgba(224,80,80,.12);  border: 1px solid rgba(224,80,80,.3); }
+    .alert-banner.info    { background: rgba(46,168,213,.10); border: 1px solid rgba(46,168,213,.3); }
+
+    /* ── Table ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { text-align: left; padding: 10px 14px; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid rgba(48,54,61,.5); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,.02); }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+    .form-control {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 14px;
+      font-family: inherit; outline: none; transition: border-color .15s;
+    }
+    .form-control:focus { border-color: var(--accent); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px;
+      border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+      border: none; text-decoration: none; transition: all .15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: rgba(224,80,80,.15); color: var(--unhealthy); border: 1px solid rgba(224,80,80,.3); }
+
+    /* ── Messages ── */
+    .django-messages { margin-bottom: 16px; }
+    .msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; }
+    .msg-success { background: rgba(63,182,139,.12); border: 1px solid rgba(63,182,139,.3); color: var(--good); }
+    .msg-error   { background: rgba(224,80,80,.12);  border: 1px solid rgba(224,80,80,.3);  color: var(--unhealthy); }
+
+    /* ── Utility ── */
+    .mb-20 { margin-bottom: 20px; }
+    .mb-16 { margin-bottom: 16px; }
+    .flex { display: flex; }
+    .gap-12 { gap: 12px; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .text-muted { color: var(--text-muted); font-size: 13px; }
+    .font-mono { font-family: 'Space Grotesk', monospace; }
+    .w-full { width: 100%; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .grid-4 { grid-template-columns: repeat(2,1fr); }
+      .grid-3 { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 600px) {
+      .sidebar { display: none; }
+      main { margin-left: 0; }
+      .topbar { left: 0; }
+      .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🌬</div>
+    <div>
+      <span>Air Quality AI</span>
+      <small>Скопје</small>
+    </div>
+  </div>
+  <nav>
+    <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'home' %}active{% endif %}">
+      <span class="nav-icon">📊</span> Контролна табла
+    </a>
+    <a href="{% url 'map' %}" class="{% if request.resolver_match.url_name == 'map' %}active{% endif %}">
+      <span class="nav-icon">🗺</span> Мапа
+    </a>
+    <a href="{% url 'history' %}" class="{% if request.resolver_match.url_name == 'history' %}active{% endif %}">
+      <span class="nav-icon">🕒</span> Историја
+    </a>
+    <a href="{% url 'forecast' %}" class="{% if request.resolver_match.url_name == 'forecast' %}active{% endif %}">
+      <span class="nav-icon">🔮</span> Прогноза
+    </a>
+    <a href="{% url 'notifications' %}" class="{% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
+      <span class="nav-icon">🔔</span> Известувања
+      {% if unread_count > 0 %}<span class="badge">{{ unread_count }}</span>{% endif %}
+    </a>
+    <a href="{% url 'settings' %}" class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+      <span class="nav-icon">⚙️</span> Поставки
+    </a>
+    {% if user.is_staff %}
+    <a href="{% url 'admin:index' %}">
+      <span class="nav-icon">🛡</span> Админ панел
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <form method="post" action="{% url 'logout' %}" style="display:inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">
+        ⬅ Одјава
+    </button>
+</form>
+  </div>
+</aside>
+
+<!-- Topbar -->
+<div class="topbar">
+  <span class="topbar-title">{% block page_title %}Air Quality AI – Скопје{% endblock %}</span>
+  <div class="topbar-actions">
+    {% block topbar_actions %}{% endblock %}
+    <button id="btn-refresh" class="topbar-btn" title="Освежи податоци" onclick="doRefresh()">🔄 Освежи</button>
+    <a href="{% url 'export_csv' %}" class="topbar-btn" title="Извези CSV">📥 CSV</a>
+    <a href="{% url 'export_pdf' %}" class="topbar-btn" title="Извези PDF">📄 PDF</a>
+  </div>
+</div>
+{% endif %}
+
+<main>
+  {% if messages %}
+  <div class="django-messages">
+    {% for msg in messages %}
+    <div class="msg msg-{% if msg.tags == 'error' %}error{% else %}success{% endif %}">{{ msg }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+{% block scripts %}{% endblock %}
+
+<script>
+// ── Refresh button (AJAX — no full page navigation) ──
+function doRefresh() {
+  const btn = document.getElementById('btn-refresh');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Вчитување...';
+  fetch("{% url 'api_refresh' %}", {
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'ok') {
+      btn.textContent = '✅ Освежено';
+      // Update unread badge immediately
+      updateBadge(data.unread_count || 0);
+      setTimeout(() => { location.reload(); }, 800);
+    } else {
+      btn.textContent = '❌ Грешка';
+      btn.disabled = false;
+    }
+  })
+  .catch(() => {
+    btn.textContent = '❌ Грешка';
+    btn.disabled = false;
+  });
+}
+
+// ── Notification badge polling every 30s ──
+function updateBadge(count) {
+  const badges = document.querySelectorAll('nav a .badge, .notif-badge');
+  badges.forEach(b => {
+    if (count > 0) {
+      b.textContent = count;
+      b.style.display = '';
+    } else {
+      b.style.display = 'none';
+    }
+  });
+  // If badge doesn't exist yet but count > 0, create it
+  if (count > 0) {
+    document.querySelectorAll('nav a[href*="notifications"]').forEach(link => {
+      let badge = link.querySelector('.badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'badge notif-badge';
+        link.appendChild(badge);
+      }
+      badge.textContent = count;
+      badge.style.display = '';
+    });
+  }
+}
+
+setInterval(() => {
+  fetch("{% url 'api_unread_count' %}", { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => updateBadge(data.unread_count || 0))
+    .catch(() => {});
+}, 30000);
+</script>
+</body>
+</html>

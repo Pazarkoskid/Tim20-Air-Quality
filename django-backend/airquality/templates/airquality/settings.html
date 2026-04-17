@@ -1,0 +1,151 @@
+{% extends "airquality/base.html" %}
+{% block title %} | Поставки{% endblock %}
+{% block page_title %}Кориснички Профил и Поставки{% endblock %}
+
+{% block content %}
+<div style="font-size:13px;color:var(--text-muted);margin-bottom:24px;">
+  Управувајте со вашите лични информации, безбедност и преференции за известувања.
+</div>
+
+{% if messages %}
+<div style="margin-bottom:16px;">
+  {% for msg in messages %}
+  <div class="alert-banner {% if msg.tags == 'error' %}danger{% else %}warning{% endif %}" style="margin-bottom:8px;">
+    <span style="font-size:16px;">{% if msg.tags == 'error' %}❌{% else %}✅{% endif %}</span>
+    <div>{{ msg }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start;">
+  <!-- Profile sidebar -->
+  <div class="card" style="text-align:center;">
+    <div style="width:72px;height:72px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px;">👤</div>
+    <div style="font-weight:700;font-size:15px;">{{ user.get_full_name|default:user.username }}</div>
+    <div style="font-size:12px;color:var(--text-muted);">Скопје, Македонија</div>
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px;text-align:left;">
+      <div style="font-size:12px;color:var(--text-muted);">Член од: <span style="color:var(--text);">{{ user.date_joined|date:"F Y" }}</span></div>
+      <div style="font-size:12px;color:var(--text-muted);">Статус: <span style="color:var(--good);">Активен</span></div>
+    </div>
+  </div>
+
+  <!-- Main settings -->
+  <div>
+    <!-- Tab navigation -->
+    <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);">
+      <a href="#" data-tab="profile" class="settings-tab active"
+         style="padding:10px 16px;font-size:14px;font-weight:500;color:var(--accent);text-decoration:none;border-bottom:2px solid var(--accent);margin-bottom:-1px;">👤 Профил</a>
+      <a href="#" data-tab="thresholds" class="settings-tab"
+         style="padding:10px 16px;font-size:14px;font-weight:500;color:var(--text-muted);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;">🔔 Прагови</a>
+      <a href="#" data-tab="security" class="settings-tab"
+         style="padding:10px 16px;font-size:14px;font-weight:500;color:var(--text-muted);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;">🔒 Безбедност</a>
+    </div>
+
+    <!-- ── Profile tab ── -->
+    <div id="tab-profile" class="tab-content">
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="profile">
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Лични информации</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Вашите основни податоци за комуникација и приказ.</div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Име</label>
+              <input type="text" name="first_name" class="form-control" value="{{ user.first_name }}"/>
+            </div>
+            <div class="form-group">
+              <label>Презиме</label>
+              <input type="text" name="last_name" class="form-control" value="{{ user.last_name }}"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Е-пошта</label>
+            <input type="email" name="email" class="form-control" value="{{ user.email }}"/>
+          </div>
+          <button type="submit" class="btn btn-primary">💾 Зачувај промени</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── Thresholds tab ── -->
+    <div id="tab-thresholds" class="tab-content" style="display:none;">
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="profile">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Прагови за известувања</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Поставете го AQI прагот при кој ќе добивате известувања.</div>
+          <div class="form-group">
+            <label>{{ form.aqi_threshold.label }}</label>
+            {{ form.aqi_threshold }}
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Препорачана вредност: 100 (Умерено)</div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              {{ form.notifications_enabled }}
+              <span>{{ form.notifications_enabled.label }}</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              {{ form.notify_push }}
+              <span>Push известувања</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary">💾 Зачувај поставки</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── Security tab (FIXED: name attrs + action) ── -->
+    <div id="tab-security" class="tab-content" style="display:none;">
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="change_password">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;">🔒 Безбедност на сметката</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">
+            Лозинката мора да биде најмалку 8 знаци.
+          </div>
+          <div class="form-group">
+            <label>Нова лозинка</label>
+            <input type="password" name="new_password" class="form-control"
+                   placeholder="Внесете нова лозинка" autocomplete="new-password"/>
+          </div>
+          <div class="form-group">
+            <label>Потврди нова лозинка</label>
+            <input type="password" name="confirm_password" class="form-control"
+                   placeholder="Повторете ја новата лозинка" autocomplete="new-password"/>
+          </div>
+          <button type="submit" class="btn btn-primary">🔑 Промени лозинка</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.settings-tab').forEach(tab => {
+  tab.addEventListener('click', e => {
+    e.preventDefault();
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.settings-tab').forEach(t => {
+      t.style.color = 'var(--text-muted)';
+      t.style.borderBottomColor = 'transparent';
+    });
+    tab.style.color = 'var(--accent)';
+    tab.style.borderBottomColor = 'var(--accent)';
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    const el = document.getElementById('tab-' + target);
+    if (el) el.style.display = 'block';
+  });
+});
+document.querySelectorAll('select').forEach(s => s.className = 'form-control');
+document.querySelectorAll('input[type=number]').forEach(i => i.className = 'form-control');
+</script>
+{% endblock %}

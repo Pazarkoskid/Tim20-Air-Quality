@@ -1,0 +1,11 @@
+Django==5.0.6
+requests==2.32.3
+numpy>=2.1.0
+pandas>=2.2.3
+scikit-learn>=1.5.2
+APScheduler==3.10.4
+django-apscheduler==0.6.2
+reportlab==4.2.2
+python-dotenv==1.0.1
+Pillow==10.4.0
+
