@@ -7,6 +7,12 @@
 {% endblock %}
 
 {% block content %}
+{% if model_used %}
+<div style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text-muted);margin-bottom:16px;">
+  <span style="width:8px;height:8px;border-radius:50%;background:{% if 'Keras' in model_used or 'AI' in model_used %}var(--good){% else %}var(--moderate){% endif %};display:inline-block;"></span>
+  Прогноза генерирана со: <strong style="color:var(--text);">{{ model_used }}</strong>
+</div>
+{% endif %}
 <!-- Snapshot cards -->
 <div class="grid-3 mb-20">
   {% for snap, label in forecast_snaps %}

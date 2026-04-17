@@ -4,7 +4,7 @@ import json
 from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import HttpResponse, JsonResponse
@@ -15,8 +15,6 @@ from django.views.decorators.http import require_POST
 from airquality.forms import HistoryFilterForm, ProfileForm, RegisterForm
 from airquality.models import AirQualityRecord, Forecast, Notification, UserProfile
 from airquality.services import fetch_air_quality, generate_forecast, save_record_and_notify
-from django.shortcuts import render
-from .models import AirQualityRecord, Notification
 
 
 # ─────────────────────────────────────────────
@@ -52,14 +50,12 @@ def dashboard(request):
         data = fetch_air_quality()
         latest = save_record_and_notify(data)
 
-    # Last 24h chart data
     since_24h = timezone.now() - timedelta(hours=24)
     chart_records = AirQualityRecord.objects.filter(timestamp__gte=since_24h).order_by('timestamp')
     chart_labels = [r.timestamp.strftime('%H:%M') for r in chart_records]
-    chart_aqi = [r.aqi for r in chart_records]
-    chart_pm25 = [r.pm25 or 0 for r in chart_records]
+    chart_aqi    = [r.aqi for r in chart_records]
+    chart_pm25   = [r.pm25 or 0 for r in chart_records]
 
-    # 72h forecast summary (24h/48h/72h averages)
     forecasts_24 = Forecast.objects.filter(hours_ahead__lte=24).order_by('hours_ahead')
     forecasts_48 = Forecast.objects.filter(hours_ahead__gt=24, hours_ahead__lte=48).order_by('hours_ahead')
     forecasts_72 = Forecast.objects.filter(hours_ahead__gt=48, hours_ahead__lte=72).order_by('hours_ahead')
@@ -87,11 +83,11 @@ def dashboard(request):
 # ─────────────────────────────────────────────
 #  Map
 # ─────────────────────────────────────────────
+
 @login_required
 def map_view(request):
     latest = AirQualityRecord.objects.first()
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
-
     context = {
         'latest': latest,
         'unread_count': unread_count,
@@ -100,7 +96,6 @@ def map_view(request):
         'city_lon': settings.CITY_LON,
         'city_name': settings.CITY_NAME,
     }
-
     return render(request, 'airquality/map.html', context)
 
 
@@ -112,6 +107,7 @@ def map_view(request):
 def history_view(request):
     form = HistoryFilterForm(request.GET or None)
     since = timezone.now() - timedelta(hours=24)
+    to = timezone.now()
     period_label = 'Последни 24 часа'
 
     if form.is_valid():
@@ -126,25 +122,19 @@ def history_view(request):
             df = form.cleaned_data.get('date_from')
             dt = form.cleaned_data.get('date_to')
             if df:
-                since = timezone.make_aware(
-                    timezone.datetime(df.year, df.month, df.day))
+                since = timezone.make_aware(timezone.datetime(df.year, df.month, df.day))
             if dt:
-                to = timezone.make_aware(
-                    timezone.datetime(dt.year, dt.month, dt.day, 23, 59, 59))
-            else:
-                to = timezone.now()
+                to = timezone.make_aware(timezone.datetime(dt.year, dt.month, dt.day, 23, 59, 59))
             period_label = f'{df} – {dt}'
 
     records = AirQualityRecord.objects.filter(timestamp__gte=since).order_by('timestamp')
-    if 'to' not in dir():
-        to = timezone.now()
 
     chart_labels = json.dumps([r.timestamp.strftime('%d.%m %H:%M') for r in records])
-    chart_pm25 = json.dumps([r.pm25 or 0 for r in records])
-    chart_pm10 = json.dumps([r.pm10 or 0 for r in records])
-    chart_no2 = json.dumps([r.no2 or 0 for r in records])
-    chart_co = json.dumps([r.co or 0 for r in records])
-    chart_aqi = json.dumps([r.aqi for r in records])
+    chart_pm25   = json.dumps([r.pm25 or 0 for r in records])
+    chart_pm10   = json.dumps([r.pm10 or 0 for r in records])
+    chart_no2    = json.dumps([r.no2 or 0 for r in records])
+    chart_co     = json.dumps([r.co or 0 for r in records])
+    chart_aqi    = json.dumps([r.aqi for r in records])
 
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
 
@@ -169,20 +159,21 @@ def history_view(request):
 
 @login_required
 def forecast_view(request):
-    forecasts = Forecast.objects.filter(
-        hours_ahead__in=list(range(1, 73))
-    ).order_by('hours_ahead')
+    forecasts = Forecast.objects.filter(hours_ahead__in=list(range(1, 73))).order_by('hours_ahead')
+    model_used = None
 
     if not forecasts.exists():
-        generate_forecast()
+        result = generate_forecast()
+        # generate_forecast now returns (forecasts, model_name)
+        if isinstance(result, tuple):
+            _, model_used = result
         forecasts = Forecast.objects.order_by('hours_ahead')
 
-    labels = json.dumps([f.forecast_time.strftime('%d.%m %H:%M') for f in forecasts])
-    pred_aqi = json.dumps([f.predicted_aqi for f in forecasts])
-    pred_pm25 = json.dumps([f.predicted_pm25 or 0 for f in forecasts])
+    labels     = json.dumps([f.forecast_time.strftime('%d.%m %H:%M') for f in forecasts])
+    pred_aqi   = json.dumps([f.predicted_aqi for f in forecasts])
+    pred_pm25  = json.dumps([f.predicted_pm25 or 0 for f in forecasts])
     confidence = json.dumps([f.confidence for f in forecasts])
 
-    # Key forecast snapshots
     snap24 = forecasts.filter(hours_ahead=24).first()
     snap48 = forecasts.filter(hours_ahead=48).first()
     snap72 = forecasts.filter(hours_ahead=72).first()
@@ -198,6 +189,7 @@ def forecast_view(request):
         'snap48': snap48,
         'snap72': snap72,
         'unread_count': unread_count,
+        'model_used': model_used or 'статистички модел',
     })
 
 
@@ -223,7 +215,17 @@ def mark_all_read(request):
 
 
 # ─────────────────────────────────────────────
-#  Settings / Profile
+#  API: unread notification count (for polling)
+# ─────────────────────────────────────────────
+
+@login_required
+def api_unread_count(request):
+    count = Notification.objects.filter(user=request.user, read=False).count()
+    return JsonResponse({'unread_count': count})
+
+
+# ─────────────────────────────────────────────
+#  Settings / Profile  (FIX: change password)
 # ─────────────────────────────────────────────
 
 @login_required
@@ -233,14 +235,37 @@ def settings_view(request):
                        initial={'first_name': request.user.first_name,
                                 'last_name': request.user.last_name,
                                 'email': request.user.email})
-    if request.method == 'POST' and form.is_valid():
-        request.user.first_name = form.cleaned_data['first_name']
-        request.user.last_name = form.cleaned_data['last_name']
-        request.user.email = form.cleaned_data['email']
-        request.user.save()
-        form.save()
-        messages.success(request, 'Поставките се зачувани.')
-        return redirect('settings')
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'profile')
+
+        # ── Change password tab ──
+        if action == 'change_password':
+            new_pw  = request.POST.get('new_password', '').strip()
+            confirm = request.POST.get('confirm_password', '').strip()
+            if not new_pw:
+                messages.error(request, 'Внесете нова лозинка.')
+            elif new_pw != confirm:
+                messages.error(request, 'Лозинките не се совпаѓаат.')
+            elif len(new_pw) < 8:
+                messages.error(request, 'Лозинката мора да биде најмалку 8 знаци.')
+            else:
+                request.user.set_password(new_pw)
+                request.user.save()
+                update_session_auth_hash(request, request.user)  # keep user logged in
+                messages.success(request, '✅ Лозинката е успешно променета.')
+            return redirect('settings')
+
+        # ── Profile / thresholds tab ──
+        if form.is_valid():
+            request.user.first_name = form.cleaned_data['first_name']
+            request.user.last_name  = form.cleaned_data['last_name']
+            request.user.email      = form.cleaned_data['email']
+            request.user.save()
+            form.save()
+            messages.success(request, 'Поставките се зачувани.')
+            return redirect('settings')
+
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
     return render(request, 'airquality/settings.html', {
         'form': form, 'profile': profile, 'unread_count': unread_count
@@ -248,24 +273,40 @@ def settings_view(request):
 
 
 # ─────────────────────────────────────────────
-#  Export CSV
+#  Export CSV  (FIX: UTF-8 BOM for Excel + Macedonian headers)
 # ─────────────────────────────────────────────
 
 @login_required
 def export_csv(request):
     since = timezone.now() - timedelta(days=30)
     records = AirQualityRecord.objects.filter(timestamp__gte=since).order_by('-timestamp')
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="air_quality_skopje.csv"'
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="kvalitet_na_vozduh_skopje.csv"'
+    # utf-8-sig adds BOM so Excel opens Macedonian chars correctly
+    response.write('\ufeff')
     writer = csv.writer(response)
-    writer.writerow(['Timestamp', 'AQI', 'PM2.5', 'PM10', 'CO', 'NO2', 'O3', 'SO2', 'NH3', 'Source'])
+    writer.writerow(['Датум/Време', 'AQI', 'PM2.5 (µg/m³)', 'PM10 (µg/m³)',
+                     'CO (µg/m³)', 'NO2 (µg/m³)', 'O3 (µg/m³)', 'SO2 (µg/m³)',
+                     'NH3 (µg/m³)', 'Извор'])
     for r in records:
-        writer.writerow([r.timestamp, r.aqi, r.pm25, r.pm10, r.co, r.no2, r.o3, r.so2, r.nh3, r.source])
+        writer.writerow([
+            r.timestamp.strftime('%d.%m.%Y %H:%M'),
+            f'{r.aqi:.1f}',
+            f'{r.pm25:.2f}' if r.pm25 is not None else '',
+            f'{r.pm10:.2f}' if r.pm10 is not None else '',
+            f'{r.co:.2f}'   if r.co   is not None else '',
+            f'{r.no2:.2f}'  if r.no2  is not None else '',
+            f'{r.o3:.2f}'   if r.o3   is not None else '',
+            f'{r.so2:.2f}'  if r.so2  is not None else '',
+            f'{r.nh3:.2f}'  if r.nh3  is not None else '',
+            r.source,
+        ])
     return response
 
 
 # ─────────────────────────────────────────────
-#  Export PDF
+#  Export PDF  (FIX: Macedonian/Cyrillic support via DejaVu font)
 # ─────────────────────────────────────────────
 
 @login_required
@@ -274,48 +315,106 @@ def export_pdf(request):
         from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
     except ImportError:
         return HttpResponse("reportlab not installed", status=500)
+
+    # Register DejaVu font — supports full Cyrillic/Macedonian
+    # Fonts are stored in the project under airquality/static/fonts/
+    # This works on Windows, Linux and Mac without any system font installation
+    import os as _os
+    _BASE = _os.path.dirname(_os.path.abspath(__file__))  # airquality/ folder
+    _FONT_SEARCH = [
+        _os.path.join(_BASE, 'static', 'fonts'),          # airquality/static/fonts/  ← put fonts here
+        _os.path.join(_BASE, '..', 'static', 'fonts'),    # django-backend/static/fonts/
+        # Linux system fallbacks
+        '/usr/share/fonts/truetype/dejavu/',
+        '/usr/share/fonts/dejavu/',
+    ]
+
+    FONT = 'Helvetica'
+    FONT_BOLD = 'Helvetica-Bold'
+    for _d in _FONT_SEARCH:
+        _reg  = _os.path.join(_d, 'DejaVuSans.ttf')
+        _bold = _os.path.join(_d, 'DejaVuSans-Bold.ttf')
+        if _os.path.exists(_reg) and _os.path.exists(_bold):
+            try:
+                if 'DejaVu' not in pdfmetrics.getRegisteredFontNames():
+                    pdfmetrics.registerFont(TTFont('DejaVu', _reg))
+                    pdfmetrics.registerFont(TTFont('DejaVu-Bold', _bold))
+                FONT = 'DejaVu'
+                FONT_BOLD = 'DejaVu-Bold'
+            except Exception:
+                pass
+            break
 
     since = timezone.now() - timedelta(days=7)
     records = AirQualityRecord.objects.filter(timestamp__gte=since).order_by('-timestamp')[:100]
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4)
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=36, rightMargin=36, topMargin=40, bottomMargin=36)
     styles = getSampleStyleSheet()
-    elements = []
 
-    elements.append(Paragraph('Air Quality AI – Скопје', styles['Title']))
-    elements.append(Paragraph(f'Извештај генериран: {timezone.now().strftime("%d.%m.%Y %H:%M")}', styles['Normal']))
-    elements.append(Spacer(1, 12))
+    title_style = ParagraphStyle(
+        'MkTitle', fontName=FONT_BOLD, fontSize=16,
+        textColor=colors.HexColor('#1a6b8a'), spaceAfter=4,
+    )
+    normal_style = ParagraphStyle(
+        'MkNormal', fontName=FONT, fontSize=9,
+        textColor=colors.HexColor('#555555'), spaceAfter=8,
+    )
 
-    data = [['Timestamp', 'AQI', 'PM2.5', 'PM10', 'NO2', 'CO']]
+    # Cell styles — MUST use Paragraph so DejaVu TTF font is applied
+    # Plain strings in Table cells fall back to Helvetica which lacks Cyrillic
+    header_cell = ParagraphStyle(
+        'MkHeader', fontName=FONT_BOLD, fontSize=8,
+        textColor=colors.white, leading=10,
+    )
+    data_cell = ParagraphStyle(
+        'MkCell', fontName=FONT, fontSize=8,
+        textColor=colors.HexColor('#222222'), leading=10,
+    )
+
+    mk_headers = ['Датум/Време', 'AQI', 'PM2.5', 'PM10', 'NO2', 'CO']
+    data = [[Paragraph(h, header_cell) for h in mk_headers]]
     for r in records:
         data.append([
-            r.timestamp.strftime('%d.%m.%Y %H:%M'),
-            f'{r.aqi:.1f}',
-            f'{r.pm25:.2f}' if r.pm25 else '-',
-            f'{r.pm10:.2f}' if r.pm10 else '-',
-            f'{r.no2:.2f}' if r.no2 else '-',
-            f'{r.co:.2f}' if r.co else '-',
+            Paragraph(r.timestamp.strftime('%d.%m.%Y %H:%M'), data_cell),
+            Paragraph(f'{r.aqi:.1f}', data_cell),
+            Paragraph(f'{r.pm25:.2f}' if r.pm25 else '–', data_cell),
+            Paragraph(f'{r.pm10:.2f}' if r.pm10 else '–', data_cell),
+            Paragraph(f'{r.no2:.2f}'  if r.no2  else '–', data_cell),
+            Paragraph(f'{r.co:.2f}'   if r.co   else '–', data_cell),
         ])
 
-    table = Table(data, colWidths=[120, 50, 60, 60, 60, 60])
+    elements = []
+    elements.append(Paragraph('Квалитет на воздух – Скопје', title_style))
+    elements.append(Paragraph(
+        f'Извештај генериран: {timezone.now().strftime("%d.%m.%Y %H:%M")}  |  Период: последни 7 дена',
+        normal_style
+    ))
+    elements.append(Spacer(1, 10))
+
+    col_widths = [115, 45, 60, 60, 60, 60]
+    table = Table(data, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a6b8a')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f7fa')]),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BACKGROUND',    (0, 0), (-1, 0), colors.HexColor('#1a6b8a')),
+        ('ROWBACKGROUNDS',(0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f7fa')]),
+        ('GRID',          (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('ALIGN',         (1, 0), (-1, -1), 'CENTER'),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
     elements.append(table)
     doc.build(elements)
 
     buf.seek(0)
     response = HttpResponse(buf, content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="air_quality_report.pdf"'
+    response['Content-Disposition'] = 'attachment; filename="izvestaj_kvalitet_vozduh.pdf"'
     return response
 
 
@@ -327,13 +426,13 @@ def export_pdf(request):
 def import_csv(request):
     if request.method == 'POST' and request.FILES.get('csv_file'):
         f = request.FILES['csv_file']
-        decoded = f.read().decode('utf-8').splitlines()
+        decoded = f.read().decode('utf-8-sig').splitlines()  # strip BOM if present
         reader = csv.DictReader(decoded)
         count = 0
         for row in reader:
             try:
                 AirQualityRecord.objects.create(
-                    timestamp=row.get('Timestamp') or timezone.now(),
+                    timestamp=row.get('Timestamp') or row.get('Датум/Време') or timezone.now(),
                     aqi=float(row.get('AQI', 0)),
                     pm25=float(row['PM2.5']) if row.get('PM2.5') else None,
                     pm10=float(row['PM10']) if row.get('PM10') else None,
@@ -378,7 +477,12 @@ def api_forecast(request):
 
 @login_required
 def api_refresh(request):
-    """Manually trigger a data fetch."""
+    """Manually trigger a data fetch — returns JSON + triggers page reload via JS."""
     data = fetch_air_quality()
     record = save_record_and_notify(data)
-    return JsonResponse({'status': 'ok', 'record': record.to_dict()})
+    unread_count = Notification.objects.filter(user=request.user, read=False).count()
+    return JsonResponse({
+        'status': 'ok',
+        'record': record.to_dict(),
+        'unread_count': unread_count,
+    })

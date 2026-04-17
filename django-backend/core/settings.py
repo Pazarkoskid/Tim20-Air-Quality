@@ -63,7 +63,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'airquality',
         'USER': 'postgres',
-        'PASSWORD': 'your_password',
+        'PASSWORD': '1234',
         'HOST': 'localhost',
         'PORT': '5432',
     }

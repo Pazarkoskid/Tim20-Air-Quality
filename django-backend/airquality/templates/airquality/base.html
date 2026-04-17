@@ -248,7 +248,7 @@
   <span class="topbar-title">{% block page_title %}Air Quality AI – Скопје{% endblock %}</span>
   <div class="topbar-actions">
     {% block topbar_actions %}{% endblock %}
-    <a href="{% url 'api_refresh' %}" class="topbar-btn" title="Освежи">🔄</a>
+    <button id="btn-refresh" class="topbar-btn" title="Освежи податоци" onclick="doRefresh()">🔄 Освежи</button>
     <a href="{% url 'export_csv' %}" class="topbar-btn" title="Извези CSV">📥 CSV</a>
     <a href="{% url 'export_pdf' %}" class="topbar-btn" title="Извези PDF">📄 PDF</a>
   </div>
@@ -267,5 +267,67 @@
 </main>
 
 {% block scripts %}{% endblock %}
+
+<script>
+// ── Refresh button (AJAX — no full page navigation) ──
+function doRefresh() {
+  const btn = document.getElementById('btn-refresh');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Вчитување...';
+  fetch("{% url 'api_refresh' %}", {
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'ok') {
+      btn.textContent = '✅ Освежено';
+      // Update unread badge immediately
+      updateBadge(data.unread_count || 0);
+      setTimeout(() => { location.reload(); }, 800);
+    } else {
+      btn.textContent = '❌ Грешка';
+      btn.disabled = false;
+    }
+  })
+  .catch(() => {
+    btn.textContent = '❌ Грешка';
+    btn.disabled = false;
+  });
+}
+
+// ── Notification badge polling every 30s ──
+function updateBadge(count) {
+  const badges = document.querySelectorAll('nav a .badge, .notif-badge');
+  badges.forEach(b => {
+    if (count > 0) {
+      b.textContent = count;
+      b.style.display = '';
+    } else {
+      b.style.display = 'none';
+    }
+  });
+  // If badge doesn't exist yet but count > 0, create it
+  if (count > 0) {
+    document.querySelectorAll('nav a[href*="notifications"]').forEach(link => {
+      let badge = link.querySelector('.badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'badge notif-badge';
+        link.appendChild(badge);
+      }
+      badge.textContent = count;
+      badge.style.display = '';
+    });
+  }
+}
+
+setInterval(() => {
+  fetch("{% url 'api_unread_count' %}", { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => updateBadge(data.unread_count || 0))
+    .catch(() => {});
+}, 30000);
+</script>
 </body>
 </html>

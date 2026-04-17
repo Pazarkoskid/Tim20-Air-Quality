@@ -20,4 +20,5 @@ urlpatterns = [
     path('api/history/', views.api_history, name='api_history'),
     path('api/forecast/', views.api_forecast, name='api_forecast'),
     path('api/refresh/', views.api_refresh, name='api_refresh'),
+    path('api/unread-count/', views.api_unread_count, name='api_unread_count'),
 ]
