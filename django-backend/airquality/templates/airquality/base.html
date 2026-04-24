@@ -191,23 +191,7 @@
       .topbar { left: 0; }
       .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
     }
-
-/* ── CR-001: Light theme overrides ── */
-:root[data-theme="light"] {
-  --bg: #f0f4f8;
-  --surface: #ffffff;
-  --surface2: #e8edf2;
-  --border: #c8d4de;
-  --text: #1a2a3a;
-  --text-muted: #5a7080;
-  --accent: #1a6b8a;
-  --accent2: #2eaf8b;
-  --card-shadow: 0 2px 8px rgba(0,0,0,0.10);
-}
-:root[data-theme="light"] .topbar { background: #ffffff; border-bottom: 1px solid #c8d4de; }
-:root[data-theme="light"] nav { background: #1a3a50; }
-:root[data-theme="light"] .card { background: #ffffff; border-color: #c8d4de; }
-</style>
+  </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -265,9 +249,50 @@
   <div class="topbar-actions">
     {% block topbar_actions %}{% endblock %}
     <button id="btn-refresh" class="topbar-btn" title="Освежи податоци" onclick="doRefresh()">🔄 Освежи</button>
-    <button id="btn-theme" class="topbar-btn" title="Промени тема" onclick="toggleTheme()" style="font-size:16px;">🌙</button>
     <a href="{% url 'export_csv' %}" class="topbar-btn" title="Извези CSV">📥 CSV</a>
-    <a href="{% url 'export_pdf' %}" class="topbar-btn" title="Извези PDF">📄 PDF</a>
+    <button type="button" id="open-pdf-modal" class="topbar-btn" title="Извези PDF">📄 PDF</button>
+  </div>
+</div>
+
+<!-- PDF Export Modal -->
+<div id="pdf-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:18px;max-width:520px;width:100%;margin:auto;padding:24px;position:relative;box-shadow:0 24px 80px rgba(0,0,0,.18);">
+    <button id="close-pdf-modal" type="button" style="position:absolute;top:14px;right:14px;border:none;background:none;font-size:20px;color:#444;cursor:pointer;">✕</button>
+
+    <!-- Date Selection Step -->
+    <div id="pdf-selection" style="display:block;">
+      <h2 style="margin-top:0;font-size:18px;color:#222;">Избери период за PDF</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:18px;">Одбери почетен и краен датум за PDF извештај. Датумите мора да бидат во последните 30 дена.</p>
+      <form id="pdf-range-form" method="GET" action="{% url 'export_pdf' %}" style="display:grid;gap:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#333;">
+            Почетен датум
+            <input id="pdf-date-from" name="date_from" type="date" required class="form-control" value="{{ request.GET.date_from|default:'' }}" style="color:#222;background:#f4f6f8;" />
+          </label>
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#333;">
+            Краен датум
+            <input id="pdf-date-to" name="date_to" type="date" required class="form-control" value="{{ request.GET.date_to|default:'' }}" style="color:#222;background:#f4f6f8;" />
+          </label>
+        </div>
+        <div style="font-size:12px;color:#888;">Максимален опсег: 30 дена. Датумот не може да биде во иднина.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
+          <button type="button" id="cancel-pdf-modal" class="btn btn-secondary">Откажи</button>
+          <button type="button" id="generate-pdf-btn" class="btn btn-primary">Генерирај PDF</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Confirmation Step -->
+    <div id="pdf-confirmation" style="display:none;text-align:center;">
+      <h2 style="margin-top:0;font-size:18px;color:#222;">Потврда за PDF извештај</h2>
+      <p style="font-size:14px;color:#666;margin-bottom:18px;">PDF извештајот ќе содржи податоци за периодот од <strong id="confirm-dates"></strong>.</p>
+      <p style="font-size:13px;color:#888;margin-bottom:20px;">Кликнете на копчето подолу за да го преземете документот.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <button type="button" id="back-to-selection" class="btn btn-secondary">Назад</button>
+        <button type="submit" form="pdf-range-form" class="btn btn-primary">📄 Преземи PDF</button>
+      </div>
+    </div>
+
   </div>
 </div>
 {% endif %}
@@ -286,26 +311,6 @@
 {% block scripts %}{% endblock %}
 
 <script>
-// ── CR-001: Dark/Light theme — apply saved preference immediately ──
-(function() {
-  const t = localStorage.getItem('aq_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', t);
-  document.addEventListener('DOMContentLoaded', function() {
-    const btn = document.getElementById('btn-theme');
-    if (btn) btn.textContent = t === 'dark' ? '🌙' : '☀️';
-  });
-})();
-
-function toggleTheme() {
-  const html = document.documentElement;
-  const current = html.getAttribute('data-theme') || 'dark';
-  const next = current === 'dark' ? 'light' : 'dark';
-  html.setAttribute('data-theme', next);
-  localStorage.setItem('aq_theme', next);
-  const btn = document.getElementById('btn-theme');
-  if (btn) btn.textContent = next === 'dark' ? '🌙' : '☀️';
-}
-
 // ── Refresh button (AJAX — no full page navigation) ──
 function doRefresh() {
   const btn = document.getElementById('btn-refresh');
@@ -365,6 +370,83 @@ setInterval(() => {
     .then(data => updateBadge(data.unread_count || 0))
     .catch(() => {});
 }, 30000);
+
+// ── PDF export modal (available on every page) ──
+(function () {
+  const pdfModal = document.getElementById('pdf-modal');
+  const openPdfModal = document.getElementById('open-pdf-modal');
+  const closePdfModal = document.getElementById('close-pdf-modal');
+  const cancelPdfModal = document.getElementById('cancel-pdf-modal');
+  const pdfDateFrom = document.getElementById('pdf-date-from');
+  const pdfDateTo = document.getElementById('pdf-date-to');
+  const generatePdfBtn = document.getElementById('generate-pdf-btn');
+  const backToSelection = document.getElementById('back-to-selection');
+  const pdfSelection = document.getElementById('pdf-selection');
+  const pdfConfirmation = document.getElementById('pdf-confirmation');
+  const confirmDates = document.getElementById('confirm-dates');
+
+  if (!pdfModal || !openPdfModal) return;
+
+  function formatDate(date) {
+    return date.toISOString().split('T')[0];
+  }
+
+  function setPdfLimits() {
+    if (!pdfDateFrom || !pdfDateTo) return;
+    const today = new Date();
+    const earliest = new Date();
+    earliest.setDate(today.getDate() - 30);
+    const minDate = formatDate(earliest);
+    const maxDate = formatDate(today);
+    pdfDateFrom.min = minDate;
+    pdfDateFrom.max = maxDate;
+    pdfDateTo.min = minDate;
+    pdfDateTo.max = maxDate;
+  }
+
+  function openModal() {
+    setPdfLimits();
+    pdfSelection.style.display = 'block';
+    pdfConfirmation.style.display = 'none';
+    pdfModal.style.display = 'flex';
+  }
+
+  function closeModal() {
+    pdfModal.style.display = 'none';
+  }
+
+  openPdfModal.addEventListener('click', openModal);
+  closePdfModal?.addEventListener('click', closeModal);
+  cancelPdfModal?.addEventListener('click', closeModal);
+  pdfModal.addEventListener('click', (event) => {
+    if (event.target === pdfModal) closeModal();
+  });
+
+  generatePdfBtn?.addEventListener('click', () => {
+    const from = pdfDateFrom?.value;
+    const to = pdfDateTo?.value;
+    if (!from || !to) {
+      alert('Ве молиме изберете почетен и краен датум.');
+      return;
+    }
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (fromDate > toDate) {
+      alert('Почетниот датум мора да биде пред крајниот датум.');
+      return;
+    }
+    const fromFormatted = fromDate.toLocaleDateString('mk-MK');
+    const toFormatted = toDate.toLocaleDateString('mk-MK');
+    confirmDates.textContent = `${fromFormatted} до ${toFormatted}`;
+    pdfSelection.style.display = 'none';
+    pdfConfirmation.style.display = 'block';
+  });
+
+  backToSelection?.addEventListener('click', () => {
+    pdfConfirmation.style.display = 'none';
+    pdfSelection.style.display = 'block';
+  });
+})();
 </script>
 </body>
 </html>
