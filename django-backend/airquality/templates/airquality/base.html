@@ -191,7 +191,23 @@
       .topbar { left: 0; }
       .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
     }
-  </style>
+
+/* ── CR-001: Light theme overrides ── */
+:root[data-theme="light"] {
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --surface2: #e8edf2;
+  --border: #c8d4de;
+  --text: #1a2a3a;
+  --text-muted: #5a7080;
+  --accent: #1a6b8a;
+  --accent2: #2eaf8b;
+  --card-shadow: 0 2px 8px rgba(0,0,0,0.10);
+}
+:root[data-theme="light"] .topbar { background: #ffffff; border-bottom: 1px solid #c8d4de; }
+:root[data-theme="light"] nav { background: #1a3a50; }
+:root[data-theme="light"] .card { background: #ffffff; border-color: #c8d4de; }
+</style>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -249,6 +265,7 @@
   <div class="topbar-actions">
     {% block topbar_actions %}{% endblock %}
     <button id="btn-refresh" class="topbar-btn" title="Освежи податоци" onclick="doRefresh()">🔄 Освежи</button>
+    <button id="btn-theme" class="topbar-btn" title="Промени тема" onclick="toggleTheme()" style="font-size:16px;">🌙</button>
     <a href="{% url 'export_csv' %}" class="topbar-btn" title="Извези CSV">📥 CSV</a>
     <a href="{% url 'export_pdf' %}" class="topbar-btn" title="Извези PDF">📄 PDF</a>
   </div>
@@ -269,6 +286,26 @@
 {% block scripts %}{% endblock %}
 
 <script>
+// ── CR-001: Dark/Light theme — apply saved preference immediately ──
+(function() {
+  const t = localStorage.getItem('aq_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btn-theme');
+    if (btn) btn.textContent = t === 'dark' ? '🌙' : '☀️';
+  });
+})();
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('aq_theme', next);
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = next === 'dark' ? '🌙' : '☀️';
+}
+
 // ── Refresh button (AJAX — no full page navigation) ──
 function doRefresh() {
   const btn = document.getElementById('btn-refresh');

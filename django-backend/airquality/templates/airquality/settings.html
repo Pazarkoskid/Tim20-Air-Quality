@@ -50,6 +50,14 @@
         <div class="card" style="margin-bottom:16px;">
           <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Лични информации</div>
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Вашите основни податоци за комуникација и приказ.</div>
+          <!-- FIX #5: read-only username -->
+          <div class="form-group">
+            <label>Корисничко име</label>
+            <input type="text" class="form-control" value="{{ user.username }}" readonly
+              style="opacity:0.6;cursor:not-allowed;background:var(--surface2);"
+              title="Корисничкото име не може да се менува"/>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Корисничкото име не може да се менува.</div>
+          </div>
           <div class="grid-2">
             <div class="form-group">
               <label>Име</label>

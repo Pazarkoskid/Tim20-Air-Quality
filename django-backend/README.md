@@ -115,6 +115,7 @@ python manage.py runserver
 За да се ажурираат податоците автоматски на секој час, стартувај го scheduler-от во посебен терминал:
 
 ```bash
+pip install django-apscheduler
 python manage.py runscheduler
 ```
 

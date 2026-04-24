@@ -4,6 +4,7 @@
 
 {% block topbar_actions %}
 <button onclick="markAllRead()" class="topbar-btn">✓ Означи сите прочитани</button>
+<button onclick="deleteAll()" class="topbar-btn" style="color:var(--unhealthy);border-color:rgba(224,80,80,.3);">🗑 Избриши сите</button>
 {% endblock %}
 
 {% block content %}
@@ -15,7 +16,7 @@
     </div>
 
     {% for n in notifications %}
-    <div class="card mb-16" style="{% if not n.read %}border-color:rgba(46,168,213,.3);{% endif %}">
+    <div class="card mb-16" id="notif-{{ n.pk }}" style="{% if not n.read %}border-color:rgba(46,168,213,.3);{% endif %}">
       <div class="flex items-center gap-12" style="margin-bottom:8px;">
         <span style="font-size:22px;">
           {% if n.aqi_value and n.aqi_value > 150 %}🔴{% elif n.aqi_value and n.aqi_value > 100 %}🟠{% else %}🟡{% endif %}
@@ -36,6 +37,10 @@
         {% if not n.read %}
         <span style="width:8px;height:8px;background:var(--accent);border-radius:50%;display:inline-block;"></span>
         {% endif %}
+        <!-- FIX #9: delete single notification button -->
+        <button onclick="deleteNotif({{ n.pk }})"
+          style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:4px 6px;border-radius:4px;line-height:1;"
+          title="Избриши">✕</button>
       </div>
       <div style="font-size:13px;color:var(--text-muted);line-height:1.6;padding-left:34px;">{{ n.message }}</div>
     </div>
@@ -49,27 +54,93 @@
     {% endfor %}
   </div>
 
-  <!-- Right panel — recommendations -->
+  <!-- FIX #6: AI препораки динамички врз основа на тековниот AQI -->
   <div>
     <div class="card" style="position:sticky;top:76px;">
-      <div style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:14px;">AI ПРЕПОРАКИ</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">AI ПРЕПОРАКИ</div>
+      {% if aqi_now > 0 %}
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+        Тековен AQI:
+        <strong style="{% if aqi_now > 150 %}color:var(--unhealthy){% elif aqi_now > 100 %}color:var(--sensitive){% elif aqi_now > 50 %}color:var(--moderate){% else %}color:var(--good){% endif %}">
+          {{ aqi_now|floatformat:0 }}
+        </strong>
+      </div>
+      {% endif %}
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-          <div style="font-size:12px;font-weight:700;color:var(--good);margin-bottom:4px;">🏃 Користете маска</div>
-          <div style="font-size:12px;color:var(--text-muted);">Ако мора да сте надвор, носете маска FFP2 или N95.</div>
+
+        {% if aqi_now > 150 %}
+        <!-- Критично -->
+        <div style="padding:12px;background:rgba(224,80,80,.08);border-radius:8px;border:1px solid rgba(224,80,80,.25);">
+          <div style="font-size:12px;font-weight:700;color:var(--unhealthy);margin-bottom:4px;">🚨 Останете во затворен простор</div>
+          <div style="font-size:12px;color:var(--text-muted);">Нивото на загаденост е критично. Избегнувајте секакво движење надвор.</div>
         </div>
         <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-          <div style="font-size:12px;font-weight:700;color:var(--moderate);margin-bottom:4px;">🪟 Прозорецот затворен</div>
-          <div style="font-size:12px;color:var(--text-muted);">Задржете ги прозорците затворени за да го намалите влезот на NO2 до простории.</div>
+          <div style="font-size:12px;font-weight:700;color:var(--unhealthy);margin-bottom:4px;">😷 Маска N95 задолжително</div>
+          <div style="font-size:12px;color:var(--text-muted);">Доколку морате да излезете, носете маска N95 или FFP3.</div>
         </div>
         <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">💧 Проветрување пора</div>
-          <div style="font-size:12px;color:var(--text-muted);">Најдобро проветрување е наутро помеѓу 06:00 и 08:00 часот.</div>
+          <div style="font-size:12px;font-weight:700;color:var(--unhealthy);margin-bottom:4px;">🪟 Прозорци затворени</div>
+          <div style="font-size:12px;color:var(--text-muted);">Не проветрувајте. Користете пречистувач на воздух доколку имате.</div>
         </div>
         <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-          <div style="font-size:12px;font-weight:700;color:var(--sensitive);margin-bottom:4px;">🚗 Намалете сообраќај</div>
-          <div style="font-size:12px;color:var(--text-muted);">Во денови со висока PM10, консидерирајте јавен превоз или велосипед.</div>
+          <div style="font-size:12px;font-weight:700;color:var(--unhealthy);margin-bottom:4px;">🏥 Консултирајте лекар</div>
+          <div style="font-size:12px;color:var(--text-muted);">Чувствителни групи (деца, постари, болни) да побараат медицинска помош.</div>
         </div>
+
+        {% elif aqi_now > 100 %}
+        <!-- Нездраво за чувствителни -->
+        <div style="padding:12px;background:rgba(240,136,74,.08);border-radius:8px;border:1px solid rgba(240,136,74,.25);">
+          <div style="font-size:12px;font-weight:700;color:var(--sensitive);margin-bottom:4px;">⚠️ Намалете активности надвор</div>
+          <div style="font-size:12px;color:var(--text-muted);">Чувствителни групи треба да ги избегнуваат напорните активности на отворено.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--sensitive);margin-bottom:4px;">😷 Препорачана маска FFP2</div>
+          <div style="font-size:12px;color:var(--text-muted);">При подолг престој надвор носете маска FFP2 или N95.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--moderate);margin-bottom:4px;">🚗 Избегнете прометни улици</div>
+          <div style="font-size:12px;color:var(--text-muted);">Ако е можно, користете јавен превоз или велосипед наместо автомобил.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">💧 Проветрувајте рано наутро</div>
+          <div style="font-size:12px;color:var(--text-muted);">Проветрувањето е најбезбедно помеѓу 06:00 и 08:00 часот.</div>
+        </div>
+
+        {% elif aqi_now > 50 %}
+        <!-- Умерено -->
+        <div style="padding:12px;background:rgba(245,197,66,.08);border-radius:8px;border:1px solid rgba(245,197,66,.25);">
+          <div style="font-size:12px;font-weight:700;color:var(--moderate);margin-bottom:4px;">🌤 Умерена загаденост</div>
+          <div style="font-size:12px;color:var(--text-muted);">Воздухот е прифатлив, но поединци со респираторни проблеми треба да внимаваат.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--moderate);margin-bottom:4px;">🏃 Умерена физичка активност</div>
+          <div style="font-size:12px;color:var(--text-muted);">Физичката активност е дозволена, но избегнувајте интензивен спорт надвор.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">🪟 Проветрувајте претпазливо</div>
+          <div style="font-size:12px;color:var(--text-muted);">Можете да проветрувате, но избегнувајте долго отворени прозорци.</div>
+        </div>
+
+        {% else %}
+        <!-- Добар -->
+        <div style="padding:12px;background:rgba(63,182,139,.08);border-radius:8px;border:1px solid rgba(63,182,139,.25);">
+          <div style="font-size:12px;font-weight:700;color:var(--good);margin-bottom:4px;">✅ Воздухот е чист</div>
+          <div style="font-size:12px;color:var(--text-muted);">Квалитетот на воздухот е добар. Уживајте во активностите на отворено.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--good);margin-bottom:4px;">🏃 Идеално за спорт</div>
+          <div style="font-size:12px;color:var(--text-muted);">Добар ден за трчање, велосипед или друга физичка активност надвор.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--good);margin-bottom:4px;">🪟 Проветрувајте слободно</div>
+          <div style="font-size:12px;color:var(--text-muted);">Отворете ги прозорците и освежете го домот со свеж воздух.</div>
+        </div>
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">🌿 Поминете време надвор</div>
+          <div style="font-size:12px;color:var(--text-muted);">Искористете го убавото време и поминете повеќе часови на свеж воздух.</div>
+        </div>
+        {% endif %}
+
       </div>
       <a href="{% url 'settings' %}" style="display:block;text-align:center;margin-top:14px;font-size:12px;color:var(--text-muted);text-decoration:none;">Промени го прагот за известувања →</a>
     </div>
@@ -79,11 +150,38 @@
 
 {% block scripts %}
 <script>
+// FIX #1: mark all read
 function markAllRead() {
   fetch("{% url 'mark_all_read' %}", {
     method: 'POST',
     headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
-  }).then(() => location.reload());
+  }).then(r => r.json()).then(d => {
+    if (d.status === 'ok') location.reload();
+  });
+}
+
+// FIX #9: delete single
+function deleteNotif(pk) {
+  fetch(`/notifications/delete/${pk}/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+  }).then(r => r.json()).then(d => {
+    if (d.status === 'ok') {
+      const el = document.getElementById('notif-' + pk);
+      if (el) el.remove();
+    }
+  });
+}
+
+// FIX #9: delete all
+function deleteAll() {
+  if (!confirm('Да се избришат сите известувања?')) return;
+  fetch("{% url 'delete_all_notifications' %}", {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+  }).then(r => r.json()).then(d => {
+    if (d.status === 'ok') location.reload();
+  });
 }
 </script>
 {% endblock %}
