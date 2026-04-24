@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 #  AI Model paths
 # ─────────────────────────────────────────────
 
-AI_ARTIFACTS_DIR = Path(__file__).resolve().parent.parent.parent / 'backend' / 'python-ai' / 'artifacts'
+AI_ARTIFACTS_DIR = Path(__file__).resolve().parent.parent.parent / 'backend' / 'python-ai' / 'artifacts' / '24h'
 _AI_MODEL = None
 _AI_SCALER = None
 _AI_META = None
@@ -41,9 +41,12 @@ def _load_ai_model():
         model_path = keras_files[0]
         run_name = model_path.stem  # e.g. pm10_lean_20260327_171406
 
-        meta_path = AI_ARTIFACTS_DIR / f'{run_name}_meta.json'
-        scaler_path = AI_ARTIFACTS_DIR / f'{run_name}_scaler.pkl'
-        features_path = AI_ARTIFACTS_DIR / f'{run_name}_selected_features.json'
+        meta_path = AI_ARTIFACTS_DIR / 'meta.json'
+        scaler_path = AI_ARTIFACTS_DIR / 'scaler.pkl'
+        features_path = AI_ARTIFACTS_DIR / 'selected_features.json'
+        # meta_path = AI_ARTIFACTS_DIR / f'{run_name}_meta.json'
+        # scaler_path = AI_ARTIFACTS_DIR / f'{run_name}_scaler.pkl'
+        # features_path = AI_ARTIFACTS_DIR / f'{run_name}_selected_features.json'
 
         with open(meta_path, 'r', encoding='utf-8') as f:
             _AI_META = json.load(f)
