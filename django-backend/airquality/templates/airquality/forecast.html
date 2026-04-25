@@ -119,6 +119,36 @@ const predAqi = {{ pred_aqi|safe }};
 const predPm25 = {{ pred_pm25|safe }};
 const conf = {{ confidence|safe }};
 
+function aqiCategory(aqi) {
+  if (aqi == null || isNaN(aqi)) return { label: '–', color: '#8b949e' };
+  if (aqi > 300) return { label: 'Опасен',           color: '#ff6b6b' };
+  if (aqi > 200) return { label: 'Многу нездрав',    color: '#9b3fc8' };
+  if (aqi > 150) return { label: 'Нездрав',          color: '#e05050' };
+  if (aqi > 100) return { label: 'Умерено загаден',  color: '#f0884a' };
+  if (aqi > 50)  return { label: 'Умерено',          color: '#f5c542' };
+  return            { label: 'Добар',             color: '#3fb68b' };
+}
+
+// Vertical hover line plugin — draws a dashed rule at the active index
+const hoverLinePlugin = {
+  id: 'hoverLine',
+  afterDraw(chart) {
+    const active = chart.tooltip?.getActiveElements?.() || [];
+    if (!active.length) return;
+    const { ctx, chartArea: { top, bottom } } = chart;
+    const x = active[0].element.x;
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(46,168,213,0.5)';
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
 new Chart(document.getElementById('forecastChart'), {
   type: 'line',
   data: {
@@ -129,27 +159,80 @@ new Chart(document.getElementById('forecastChart'), {
         data: predAqi,
         borderColor: '#2ea8d5',
         backgroundColor: 'rgba(46,168,213,0.08)',
-        fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        fill: true, tension: 0.4, borderWidth: 2,
         borderDash: [5, 3],
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#2ea8d5',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
       },
       {
         label: 'Предвидено PM2.5',
         data: predPm25,
         borderColor: '#f0884a',
         backgroundColor: 'transparent',
-        fill: false, tension: 0.4, pointRadius: 0, borderWidth: 2,
+        fill: false, tension: 0.4, borderWidth: 2,
         borderDash: [3, 2],
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#f0884a',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
       }
     ]
   },
   options: {
     responsive: true,
-    plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+    interaction: { mode: 'index', intersect: false, axis: 'x' },
+    hover: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#8b949e', font: { size: 11 } } },
+      tooltip: {
+        enabled: true,
+        backgroundColor: 'rgba(22,27,34,0.95)',
+        borderColor: 'rgba(46,168,213,0.4)',
+        borderWidth: 1,
+        titleColor: '#e6edf3',
+        bodyColor: '#e6edf3',
+        titleFont: { family: 'Space Grotesk, sans-serif', size: 13, weight: '600' },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 8,
+        displayColors: true,
+        boxWidth: 10,
+        boxHeight: 10,
+        boxPadding: 6,
+        callbacks: {
+          title: (items) => items.length ? `🕒 ${items[0].label}` : '',
+          label: (ctx) => {
+            const val = ctx.parsed.y;
+            if (ctx.dataset.label.includes('AQI')) {
+              const cat = aqiCategory(val);
+              return `  AQI ${Math.round(val)} — ${cat.label}`;
+            }
+            return `  PM2.5 ${val == null ? '–' : val.toFixed(1)} µg/m³`;
+          },
+          afterBody: (items) => {
+            const idx = items[0]?.dataIndex;
+            const aqi = predAqi[idx];
+            const cat = aqiCategory(aqi);
+            const lines = [''];
+            lines.push(`Статус: ${cat.label}`);
+            if (conf && conf[idx] != null) {
+              lines.push(`Доверба на модел: ${Math.round(conf[idx])}%`);
+            }
+            return lines;
+          },
+        }
+      }
+    },
     scales: {
       x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', maxTicksLimit: 12, font: { size: 10 } } },
       y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', font: { size: 10 } } }
     }
-  }
+  },
+  plugins: [hoverLinePlugin]
 });
 </script>
 {% endblock %}

@@ -2,13 +2,7 @@
 {% block title %} | Историја{% endblock %}
 {% block page_title %}Историја на квалитет на воздух{% endblock %}
 
-{% block topbar_actions %}
-<a href="{% url 'export_csv' %}?period={{ request.GET.period|default:'7d' }}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}&date_to={{ request.GET.date_to }}{% endif %}" class="topbar-btn">📥 CSV</a>
-<a href="{% url 'export_pdf' %}?period={{ request.GET.period|default:'7d' }}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}&date_to={{ request.GET.date_to }}{% endif %}" class="topbar-btn">📄 PDF</a>
-{% endblock %}
-
 {% block content %}
-
 <!-- Filter bar -->
 <div class="card mb-20">
   <form method="GET" style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
@@ -16,11 +10,11 @@
       <label>Период</label>
       {{ form.period }}
     </div>
-    <div class="form-group" style="margin-bottom:0;" id="custom-dates" style="display:none;">
+    <div class="form-group" style="margin-bottom:0;display:none;" id="custom-dates">
       <label>Од</label>
       {{ form.date_from }}
     </div>
-    <div class="form-group" style="margin-bottom:0;" id="custom-dates2">
+    <div class="form-group" style="margin-bottom:0;display:none;" id="custom-dates2">
       <label>До</label>
       {{ form.date_to }}
     </div>
@@ -28,6 +22,7 @@
     <span style="margin-left:auto;font-size:13px;color:var(--text-muted);">
       Прикажани {{ records|length }} од вкупно {{ total }} записи
     </span>
+    <!-- Import -->
     <form method="POST" action="{% url 'import_csv' %}" enctype="multipart/form-data" style="display:flex;align-items:center;gap:8px;">
       {% csrf_token %}
       <input type="file" name="csv_file" accept=".csv" class="form-control" style="max-width:200px;padding:6px 10px;font-size:12px;"/>
@@ -60,220 +55,173 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Датум/Време</th><th>PM2.5</th><th>PM10</th>
-          <th>NO₂</th><th>CO</th><th>AQI</th><th>Статус</th>
+          <th>Време</th>
+          <th>Измерено</th>
+          <th>Статус</th>
         </tr>
       </thead>
       <tbody>
         {% for r in records %}
         <tr>
           <td class="font-mono">{{ r.timestamp|date:"d.m.Y H:i" }}</td>
-          <td>{{ r.pm25|floatformat:2|default:"–" }} µg/m³</td>
-          <td>{{ r.pm10|floatformat:2|default:"–" }} µg/m³</td>
-          <td>{{ r.no2|floatformat:2|default:"–" }} µg/m³</td>
-          <td>{{ r.co|floatformat:2|default:"–" }} µg/m³</td>
-          <td class="font-mono"><strong>{{ r.aqi|floatformat:0 }}</strong></td>
-          <td><span class="aqi-pill pill-{{ r.aqi_label.1 }}">{{ r.aqi_label.0 }}</span></td>
+          <td>
+            AQI <strong>{{ r.aqi|floatformat:0 }}</strong>
+            / PM2.5 {{ r.pm25|floatformat:1|default:"–" }}
+            / PM10 {{ r.pm10|floatformat:1|default:"–" }}
+            / NO₂ {{ r.no2|floatformat:1|default:"–" }}
+            / CO {{ r.co|floatformat:1|default:"–" }} µg/m³
+          </td>
+          <td>
+            {% if r.aqi > 300 %}<span class="aqi-pill pill-hazardous">Опасен</span>
+            {% elif r.aqi > 200 %}<span class="aqi-pill pill-very-unhealthy">Многу нездрав</span>
+            {% elif r.aqi > 150 %}<span class="aqi-pill pill-unhealthy">Нездрав</span>
+            {% elif r.aqi > 100 %}<span class="aqi-pill pill-sensitive">Умерено загаден</span>
+            {% elif r.aqi > 50 %}<span class="aqi-pill pill-moderate">Умерено</span>
+            {% else %}<span class="aqi-pill pill-good">Добар</span>{% endif %}
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">Нема записи за избраниот период.</td></tr>
+        <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:32px;">Нема записи за избраниот период.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
-
-<!-- ── CR-002: Ranking table ── -->
-<div class="card" style="margin-top:24px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-    <div>
-      <div style="font-size:15px;font-weight:700;">🏆 Рангирање на денови</div>
-      <div style="font-size:12px;color:var(--text-muted);">Топ 10 најлоши и најдобри денови според просечен AQI</div>
-    </div>
-    <select id="ranking-days" onchange="loadRanking()" class="form-control" style="width:160px;font-size:13px;">
-      <option value="7">Последни 7 дена</option>
-      <option value="30" selected>Последни 30 дена</option>
-      <option value="90">Последни 90 дена</option>
-    </select>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-    <div>
-      <div style="font-size:12px;font-weight:700;color:#e05050;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;">🔴 Најлоши денови</div>
-      <div style="display:grid;grid-template-columns:100px 55px 75px 1fr;gap:6px;padding:5px 0;border-bottom:2px solid var(--border);margin-bottom:4px;">
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">Датум</span>
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">AQI</span>
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">PM2.5</span>
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">Категорија</span>
-      </div>
-      <div id="ranking-worst"><span style="color:var(--text-muted);font-size:13px;">Се вчитува...</span></div>
-    </div>
-    <div>
-      <div style="font-size:12px;font-weight:700;color:#3fb68b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;">🟢 Најдобри денови</div>
-      <div style="display:grid;grid-template-columns:100px 55px 75px 1fr;gap:6px;padding:5px 0;border-bottom:2px solid var(--border);margin-bottom:4px;">
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">Датум</span>
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">AQI</span>
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">PM2.5</span>
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);">Категорија</span>
-      </div>
-      <div id="ranking-best"><span style="color:var(--text-muted);font-size:13px;">Се вчитува...</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- ── CR-003: Period comparison ── -->
-<div class="card" style="margin-top:24px;">
-  <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📊 Споредба на два периоди</div>
-  <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Споредете ги AQI вредностите помеѓу два различни временски периоди</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-bottom:20px;">
-    <div>
-      <div style="font-size:12px;font-weight:600;color:#2ea8d5;margin-bottom:6px;">● Период 1 (сина линија)</div>
-      <div style="display:flex;gap:8px;">
-        <input type="date" id="cmp-from1" class="form-control" style="flex:1;font-size:13px;"/>
-        <input type="date" id="cmp-to1"   class="form-control" style="flex:1;font-size:13px;"/>
-      </div>
-    </div>
-    <div>
-      <div style="font-size:12px;font-weight:600;color:#e05050;margin-bottom:6px;">● Период 2 (црвена линија)</div>
-      <div style="display:flex;gap:8px;">
-        <input type="date" id="cmp-from2" class="form-control" style="flex:1;font-size:13px;"/>
-        <input type="date" id="cmp-to2"   class="form-control" style="flex:1;font-size:13px;"/>
-      </div>
-    </div>
-    <button onclick="loadComparison()" class="btn btn-primary" style="white-space:nowrap;">⚖️ Спореди</button>
-  </div>
-  <div style="position:relative;height:260px;">
-    <canvas id="compare-chart"></canvas>
-    <div id="compare-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;">
-      Изберете два периоди и кликнете „Спореди"
-    </div>
-  </div>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-// ── Original charts ──
 const labels = {{ chart_labels|safe }};
-const pm25   = {{ chart_pm25|safe }};
-const pm10   = {{ chart_pm10|safe }};
-const no2    = {{ chart_no2|safe }};
-const co     = {{ chart_co|safe }};
+const pm25 = {{ chart_pm25|safe }};
+const pm10 = {{ chart_pm10|safe }};
+const no2  = {{ chart_no2|safe }};
+const co   = {{ chart_co|safe }};
 
-const chartOpts = {
-  responsive: true,
-  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
-  scales: {
-    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', maxTicksLimit: 8, font: { size: 10 } } },
-    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', font: { size: 10 } } }
+// Health thresholds (µg/m³) → category label + color
+// PM2.5 uses EPA breakpoints; PM10, NO2, CO use EEA/WHO 24h guidelines
+function categorize(pollutant, v) {
+  if (v == null || isNaN(v)) return { label: '–', color: '#8b949e' };
+  const t = {
+    pm25: [[12,'Добар','#3fb68b'],[35.4,'Умерено','#f5c542'],[55.4,'Умерено загаден','#f0884a'],[150.4,'Нездрав','#e05050'],[250.4,'Многу нездрав','#9b3fc8']],
+    pm10: [[54,'Добар','#3fb68b'],[154,'Умерено','#f5c542'],[254,'Умерено загаден','#f0884a'],[354,'Нездрав','#e05050'],[424,'Многу нездрав','#9b3fc8']],
+    no2:  [[40,'Добар','#3fb68b'],[100,'Умерено','#f5c542'],[200,'Умерено загаден','#f0884a'],[400,'Нездрав','#e05050'],[1000,'Многу нездрав','#9b3fc8']],
+    co:   [[4400,'Добар','#3fb68b'],[9400,'Умерено','#f5c542'],[12400,'Умерено загаден','#f0884a'],[15400,'Нездрав','#e05050'],[30400,'Многу нездрав','#9b3fc8']],
+  }[pollutant] || [];
+  for (const [cap, label, color] of t) if (v <= cap) return { label, color };
+  return { label: 'Опасен', color: '#ff6b6b' };
+}
+
+// Vertical hover line across the chart area
+const hoverLinePlugin = {
+  id: 'hoverLine',
+  afterDraw(chart) {
+    const active = chart.tooltip?.getActiveElements?.() || [];
+    if (!active.length) return;
+    const { ctx, chartArea: { top, bottom } } = chart;
+    const x = active[0].element.x;
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(46,168,213,0.5)';
+    ctx.stroke();
+    ctx.restore();
   }
 };
 
+function buildChartOpts(pollutantKeys) {
+  return {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false, axis: 'x' },
+    hover: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#8b949e', font: { size: 11 } } },
+      tooltip: {
+        enabled: true,
+        backgroundColor: 'rgba(22,27,34,0.95)',
+        borderColor: 'rgba(46,168,213,0.4)',
+        borderWidth: 1,
+        titleColor: '#e6edf3',
+        bodyColor: '#e6edf3',
+        titleFont: { family: 'Space Grotesk, sans-serif', size: 13, weight: '600' },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 8,
+        displayColors: true,
+        boxWidth: 10,
+        boxHeight: 10,
+        boxPadding: 6,
+        callbacks: {
+          title: (items) => items.length ? `🕒 ${items[0].label}` : '',
+          label: (ctx) => {
+            const v = ctx.parsed.y;
+            const key = pollutantKeys[ctx.datasetIndex];
+            const cat = categorize(key, v);
+            const value = v == null ? '–' : v.toFixed(1);
+            return `  ${ctx.dataset.label}: ${value} µg/m³ — ${cat.label}`;
+          },
+        }
+      }
+    },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', maxTicksLimit: 8, font: { size: 10 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', font: { size: 10 } } }
+    }
+  };
+}
+
+function hoverStyle(color) {
+  return {
+    pointRadius: 0,
+    pointHoverRadius: 6,
+    pointHoverBackgroundColor: color,
+    pointHoverBorderColor: '#fff',
+    pointHoverBorderWidth: 2,
+  };
+}
+
 new Chart(document.getElementById('chartParticles'), {
   type: 'line',
-  data: { labels, datasets: [
-    { label: 'PM2.5', data: pm25, borderColor: '#f0884a', backgroundColor: 'rgba(240,136,74,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-    { label: 'PM10',  data: pm10, borderColor: '#9b3fc8', backgroundColor: 'rgba(155,63,200,0.07)',  fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }
-  ]}, options: chartOpts
+  data: {
+    labels,
+    datasets: [
+      { label: 'PM2.5', data: pm25, borderColor: '#f0884a', backgroundColor: 'rgba(240,136,74,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#f0884a') },
+      { label: 'PM10',  data: pm10, borderColor: '#9b3fc8', backgroundColor: 'rgba(155,63,200,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#9b3fc8') }
+    ]
+  },
+  options: buildChartOpts(['pm25', 'pm10']),
+  plugins: [hoverLinePlugin]
 });
 
 new Chart(document.getElementById('chartGases'), {
   type: 'line',
-  data: { labels, datasets: [
-    { label: 'NO₂', data: no2, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-    { label: 'CO',  data: co,  borderColor: '#3fb68b', backgroundColor: 'rgba(63,182,139,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }
-  ]}, options: chartOpts
+  data: {
+    labels,
+    datasets: [
+      { label: 'NO₂', data: no2, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#2ea8d5') },
+      { label: 'CO',  data: co,  borderColor: '#3fb68b', backgroundColor: 'rgba(63,182,139,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#3fb68b') }
+    ]
+  },
+  options: buildChartOpts(['no2', 'co']),
+  plugins: [hoverLinePlugin]
 });
 
-document.querySelector('[name=period]')?.addEventListener('change', function() {
-  const show = this.value === 'custom';
-  document.getElementById('custom-dates').style.display  = show ? 'block' : 'none';
-  document.getElementById('custom-dates2').style.display = show ? 'block' : 'none';
-});
+// Show/hide custom date fields
+const periodField = document.querySelector('[name=period]');
+const customDates = document.getElementById('custom-dates');
+const customDates2 = document.getElementById('custom-dates2');
 
-// ── CR-002: Ranking table ──
-function rankRow(item) {
-  return `<div style="display:grid;grid-template-columns:100px 55px 75px 1fr;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
-    <span style="font-size:12px;font-weight:600;">${item.date}</span>
-    <span style="font-size:13px;font-weight:700;color:${item.color};">${item.avg_aqi}</span>
-    <span style="font-size:11px;color:var(--text-muted);">${item.max_pm25} µg</span>
-    <span style="font-size:11px;background:${item.color}22;color:${item.color};border-radius:10px;padding:2px 8px;text-align:center;white-space:nowrap;">${item.category}</span>
-  </div>`;
+function updateCustomDateVisibility() {
+  const show = periodField && periodField.value === 'custom';
+  if (customDates) customDates.style.display = show ? 'block' : 'none';
+  if (customDates2) customDates2.style.display = show ? 'block' : 'none';
 }
 
-function loadRanking() {
-  const days = document.getElementById('ranking-days').value;
-  const w = document.getElementById('ranking-worst');
-  const b = document.getElementById('ranking-best');
-  w.innerHTML = b.innerHTML = '<span style="color:var(--text-muted);font-size:13px;">Се вчитува...</span>';
-  fetch(`/api/ranking/?days=${days}`)
-    .then(r => r.json())
-    .then(data => {
-      w.innerHTML = data.worst.length ? data.worst.map(rankRow).join('') : '<span style="color:var(--text-muted)">Нема доволно податоци</span>';
-      b.innerHTML = data.best.length  ? data.best.map(rankRow).join('')  : '<span style="color:var(--text-muted)">Нема доволно податоци</span>';
-    })
-    .catch(() => { w.innerHTML = b.innerHTML = '<span style="color:var(--text-muted)">Грешка при вчитување</span>'; });
+if (periodField) {
+  periodField.addEventListener('change', updateCustomDateVisibility);
 }
-
-// ── CR-003: Comparison chart ──
-let compareChart = null;
-
-function loadComparison() {
-  const f1 = document.getElementById('cmp-from1').value;
-  const t1 = document.getElementById('cmp-to1').value;
-  const f2 = document.getElementById('cmp-from2').value;
-  const t2 = document.getElementById('cmp-to2').value;
-
-  if (!f1 || !t1 || !f2 || !t2) {
-    alert('Изберете датуми за двата периоди.');
-    return;
-  }
-
-  fetch(`/api/compare/?from1=${f1}&to1=${t1}&from2=${f2}&to2=${t2}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) { alert('Грешка: ' + data.error); return; }
-      document.getElementById('compare-placeholder').style.display = 'none';
-      const ctx = document.getElementById('compare-chart').getContext('2d');
-      if (compareChart) compareChart.destroy();
-
-      const maxLen = Math.max(data.period1.labels.length, data.period2.labels.length);
-      const xLabels = Array.from({length: maxLen}, (_, i) => i + 'h');
-
-      compareChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: xLabels,
-          datasets: [
-            { label: data.period1.label, data: data.period1.values, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.4, spanGaps: true },
-            { label: data.period2.label, data: data.period2.values, borderColor: '#e05050', backgroundColor: 'rgba(224,80,80,0.08)',   borderWidth: 2, pointRadius: 0, tension: 0.4, spanGaps: true }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') || '#ccc', font: { size: 12 } } } },
-          scales: {
-            x: { ticks: { color: '#8b949e', maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.05)' } },
-            y: { ticks: { color: '#8b949e' }, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'AQI', color: '#8b949e' } }
-          }
-        }
-      });
-    })
-    .catch(() => alert('Грешка при споредба. Провери дали постојат податоци за избраните периоди.'));
-}
-
-// Init on page load
-document.addEventListener('DOMContentLoaded', function() {
-  loadRanking();
-  // Set default comparison dates: last 7 days vs week before that
-  const fmt = d => d.toISOString().split('T')[0];
-  const today    = new Date();
-  const d7       = new Date(today - 7*864e5);
-  const d14      = new Date(today - 14*864e5);
-  document.getElementById('cmp-from1').value = fmt(d7);
-  document.getElementById('cmp-to1').value   = fmt(today);
-  document.getElementById('cmp-from2').value = fmt(d14);
-  document.getElementById('cmp-to2').value   = fmt(d7);
-});
+updateCustomDateVisibility();
 </script>
 {% endblock %}
