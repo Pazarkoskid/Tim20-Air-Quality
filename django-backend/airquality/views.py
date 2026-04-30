@@ -76,8 +76,57 @@ def dashboard(request):
         'forecast_48': avg_aqi(forecasts_48),
         'forecast_72': avg_aqi(forecasts_72),
         'unread_count': unread_count,
+        'main_pollutant': latest.main_pollutant() if latest else '',
+        'aqi_description': latest.aqi_description() if latest else '',
     }
     return render(request, 'airquality/dashboard.html', context)
+
+# ─────────────────────────────────────────────
+#  Stations in dashboard
+# ─────────────────────────────────────────────
+
+
+@login_required
+def api_stations(request):
+    import requests
+
+    API_KEY = settings.OPENWEATHER_API_KEY
+
+    municipalities = [
+        {"name": "Aerodrom", "lat": 41.98333, "lon": 21.46667},
+        {"name": "Butel", "lat": 42.00000, "lon": 21.47000},
+        {"name": "Gazi Baba", "lat": 42.01629, "lon": 21.49913},
+        {"name": "Čair", "lat": 42.01059, "lon": 21.44009},
+        {"name": "Centar", "lat": 41.9981, "lon": 21.4284},
+        {"name": "Karpoš", "lat": 42.0000, "lon": 21.4085},
+        {"name": "Kisela Voda", "lat": 41.9797, "lon": 21.4412},
+        {"name": "Gjorče Petrov", "lat": 42.0078, "lon": 21.3606},
+        {"name": "Saraj", "lat": 42.0016, "lon": 21.3200},
+    ]
+
+    results = []
+
+    for m in municipalities:
+        try:
+            res = requests.get(
+                f"https://api.openweathermap.org/data/2.5/air_pollution",
+                params={"lat": m["lat"], "lon": m["lon"], "appid": API_KEY},
+                timeout=5
+            )
+            data = res.json()["list"][0]
+
+            results.append({
+                "name": m["name"],
+                "time": timezone.now().strftime("%H:%M"),
+                "pm25": data["components"]["pm2_5"],
+                "pm10": data["components"]["pm10"],
+                "no2": data["components"]["no2"],
+                "aqi": data["main"]["aqi"] * 50
+            })
+        except:
+            pass
+
+    return JsonResponse({"stations": results})
 
 
 # ─────────────────────────────────────────────
@@ -191,6 +240,15 @@ def forecast_view(request):
     snap48 = forecasts.filter(hours_ahead__gt=24, hours_ahead__lte=48).last()
     snap72 = forecasts.filter(hours_ahead__gt=48, hours_ahead__lte=72).last()
 
+    # Build forecast_snaps list for template (forecast.html uses {% for snap, label in forecast_snaps %})
+    forecast_snaps = [
+        (snap24, '+24 часа'),
+        (snap48, '+48 часа'),
+        (snap72, '+72 часа'),
+    ]
+    # Key forecasts: pick every 12h up to 72h
+    key_forecasts = list(forecasts.filter(hours_ahead__in=[6, 12, 24, 36, 48, 60, 72]))
+
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
     return render(request, 'airquality/forecast.html', {
         'forecasts': forecasts,
@@ -201,6 +259,8 @@ def forecast_view(request):
         'snap24': snap24,
         'snap48': snap48,
         'snap72': snap72,
+        'forecast_snaps': forecast_snaps,
+        'key_forecasts': key_forecasts,
         'unread_count': unread_count,
         'model_used': model_used,
         'forecast_date': now,
@@ -268,15 +328,11 @@ def api_unread_count(request):
 @login_required
 def settings_view(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    form = ProfileForm(request.POST or None, instance=profile,
-                       initial={'first_name': request.user.first_name,
-                                'last_name': request.user.last_name,
-                                'email': request.user.email})
-
     if request.method == 'POST':
         action = request.POST.get('action', 'profile')
+        # FIX #3: consume existing messages to prevent duplicates
+        list(messages.get_messages(request))
 
-        # FIX #8: change_password — use messages.add_message directly, no double message
         if action == 'change_password':
             new_pw  = request.POST.get('new_password', '').strip()
             confirm = request.POST.get('confirm_password', '').strip()
@@ -290,14 +346,9 @@ def settings_view(request):
                 request.user.set_password(new_pw)
                 request.user.save()
                 update_session_auth_hash(request, request.user)
-                # FIX #8: use storage.used flag workaround — add only once
-                # by clearing existing success messages first
-                storage = messages.get_messages(request)
-                storage.used = True
                 messages.success(request, '✅ Лозинката е успешно променета.')
-            return redirect('settings')
+            return redirect('/settings/?tab=security')
 
-        # FIX #4: profile save — save User fields + UserProfile fields directly
         if action == 'profile':
             first_name = request.POST.get('first_name', '').strip()
             last_name  = request.POST.get('last_name', '').strip()
@@ -307,24 +358,39 @@ def settings_view(request):
             if email:
                 request.user.email = email
             request.user.save()
+            messages.success(request, '✅ Поставките се зачувани.')
+            return redirect('/settings/?tab=profile')
 
-            # Save UserProfile fields directly — do not rely on form.is_valid()
-            # because extra fields (first_name/last_name) cause validation issues
+        if action == 'thresholds':
             try:
-                profile.aqi_threshold         = int(request.POST.get('aqi_threshold', profile.aqi_threshold))
+                profile.aqi_threshold = int(request.POST.get('aqi_threshold', profile.aqi_threshold))
             except (ValueError, TypeError):
                 pass
             profile.notifications_enabled = request.POST.get('notifications_enabled') == 'on'
             profile.notify_email           = request.POST.get('notify_email') == 'on'
             profile.notify_push            = request.POST.get('notify_push') == 'on'
             profile.save()
+            messages.success(request, '✅ Поставките се зачувани.')
+            return redirect('/settings/?tab=thresholds')
 
-            messages.success(request, 'Поставките се зачувани.')
-            return redirect('settings')
-
+    # GET — always load fresh from DB
+    form = ProfileForm(None, instance=profile,
+                       initial={'first_name': request.user.first_name,
+                                'last_name': request.user.last_name,
+                                'email': request.user.email})
+    active_tab = request.GET.get('tab', 'profile')
+    tabs = [
+        ('profile',    '👤 Профил'),
+        ('security',   '🔒 Безбедност'),
+        ('thresholds', '🔔 Прагови'),
+        ('advanced',   '⚙️ Напредно'),
+    ]
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
     return render(request, 'airquality/settings.html', {
-        'form': form, 'profile': profile, 'unread_count': unread_count
+        'form': form, 'profile': profile,
+        'unread_count': unread_count,
+        'active_tab': active_tab,
+        'tabs': tabs,
     })
 
 

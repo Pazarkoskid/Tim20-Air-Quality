@@ -47,6 +47,20 @@ class AirQualityRecord(models.Model):
         else:
             return ('Опасен', 'hazardous')
 
+    def aqi_description(self):
+        if self.aqi <= 50:
+            return "Квалитетот на воздухот е добар. Слободно уживајте во активности на отворено."
+        elif self.aqi <= 100:
+            return "Квалитетот е прифатлив, но чувствителните лица треба да внимаваат."
+        elif self.aqi <= 150:
+            return "Нездраво за чувствителни групи. Ограничете активности на отворено."
+        elif self.aqi <= 200:
+            return "Нездраво. Намалете престој на отворено."
+        elif self.aqi <= 300:
+            return "Многу нездраво. Избегнувајте активности на отворено."
+        else:
+            return "Опасно ниво на загадување. Останете во затворен простор."
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -61,6 +75,26 @@ class AirQualityRecord(models.Model):
             'nh3': self.nh3,
             'source': self.source,
         }
+
+    def main_pollutant(self):
+        pollutants = {
+            'PM2.5': self.pm25,
+            'PM10': self.pm10,
+            'NO2': self.no2,
+            'CO': self.co,
+            'O3': self.o3,
+            'SO2': self.so2,
+            'NH3': self.nh3,
+        }
+
+        # remove None values
+        pollutants = {k: v for k, v in pollutants.items() if v is not None}
+
+        if not pollutants:
+            return "Нема податоци"
+
+        main = max(pollutants, key=pollutants.get)
+        return f"{main}"
 
     def __str__(self):
         return f'AQI {self.aqi} @ {self.timestamp}'
