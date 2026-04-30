@@ -81,6 +81,8 @@ SECRET_KEY=some-random-secret-key-here
 DEBUG=True
 OPENWEATHER_API_KEY=твојот_клуч_од_openweathermap.org
 ALLOWED_HOSTS=localhost,127.0.0.1
+
+python -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
 > **Добивање на OpenWeather API клуч:**
