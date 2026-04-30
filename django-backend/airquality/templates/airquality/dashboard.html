@@ -46,10 +46,16 @@
       <span class="aqi-big aqi-{{ latest.aqi_label.1 }}">{{ latest.aqi|floatformat:0 }}</span>
       <span class="aqi-pill pill-{{ latest.aqi_label.1 }}" style="margin-bottom:8px;">{{ latest.aqi_label.0 }}</span>
     </div>
-    <div style="font-size:12px;color:var(--text-muted);">Главен загадувач: <strong style="color:var(--text);">PM 2.5</strong></div>
-    <div style="font-size:13px;color:var(--text-muted);line-height:1.5;">
-      Квалитетот на воздухот е нездрав за чувствителни групи. Избегнувајте долги периоди на сторени активности на отворено.
-    </div>
+    <div style="font-size:12px;color:var(--text-muted);">
+  Главен загадувач:
+  <strong style="color:var(--text);">
+    {{ main_pollutant }}
+  </strong>
+</div>
+
+<div style="font-size:13px;color:var(--text-muted);line-height:1.5;">
+  {{ aqi_description }}
+</div>
     {% else %}
     <div style="color:var(--text-muted);">Нема податоци. <a href="{% url 'api_refresh' %}" style="color:var(--accent);">Освежи</a></div>
     {% endif %}
@@ -147,6 +153,27 @@
   <canvas id="chartMain" style="max-height:200px;"></canvas>
 </div>
 
+<!-- Stations -->
+<div class="card">
+  <div class="card-title">Последни записи по мерни станици</div>
+
+  <table style="width:100%;font-size:13px;margin-top:10px;text-align:center;">
+    <thead style="color:var(--text-muted);">
+      <tr>
+        <th>Мерна Станица</th>
+        <th>Време</th>
+        <th>PM2.5</th>
+        <th>PM10</th>
+        <th>NO2</th>
+        <th>AQI</th>
+        <th>Статус</th>
+      </tr>
+    </thead>
+    <tbody id="stations-table"></tbody>
+  </table>
+</div>
+
+
 {% endblock %}
 
 {% block scripts %}
@@ -194,5 +221,34 @@ if (ctx && labels.length) {
     }
   });
 }
+  async function loadStationsTable() {
+    const res = await fetch("/api/stations/");
+    const data = await res.json();
+
+    const tbody = document.getElementById("stations-table");
+    tbody.innerHTML = "";
+
+    data.stations.forEach(s => {
+        let status = "Добар";
+        let cls = "good";
+
+        if (s.aqi > 150) { status = "Многу лош"; cls = "very-unhealthy"; }
+        else if (s.aqi > 100) { status = "Лош"; cls = "unhealthy"; }
+        else if (s.aqi > 50) { status = "Умерен"; cls = "moderate"; }
+
+        tbody.innerHTML += `
+        <tr>
+            <td>${s.name}</td>
+            <td>${s.time}</td>
+            <td>${s.pm25.toFixed(1)}</td>
+            <td>${s.pm10.toFixed(1)}</td>
+            <td>${s.no2.toFixed(1)}</td>
+            <td><strong>${Math.round(s.aqi)}</strong></td>
+            <td><span class="pill-${cls}">${status}</span></td>
+        </tr>`;
+    });
+}
+
+loadStationsTable();
 </script>
 {% endblock %}

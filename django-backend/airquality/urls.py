@@ -12,6 +12,7 @@ urlpatterns = [
     path('notifications/mark-read/', views.mark_all_read, name='mark_all_read'),
     path('notifications/delete/<int:pk>/', views.delete_notification, name='delete_notification'),
     path('notifications/delete-all/', views.delete_all_notifications, name='delete_all_notifications'),
+    path("api/stations/", views.api_stations, name="api_stations"),
     path('settings/', views.settings_view, name='settings'),
     # Export / Import
     path('export/csv/', views.export_csv, name='export_csv'),

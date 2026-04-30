@@ -205,7 +205,7 @@
   --card-shadow: 0 2px 8px rgba(0,0,0,0.10);
 }
 :root[data-theme="light"] .topbar { background: #ffffff; border-bottom: 1px solid #c8d4de; }
-:root[data-theme="light"] nav { background: #1a3a50; }
+
 :root[data-theme="light"] .card { background: #ffffff; border-color: #c8d4de; }
 </style>
   {% block extra_head %}{% endblock %}
@@ -270,6 +270,7 @@
     <button type="button" id="open-pdf-modal" class="topbar-btn" title="Извези PDF">📄 PDF</button>
   </div>
 </div>
+
 
 <!-- PDF Export Modal -->
 <div id="pdf-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:24px;">
@@ -484,5 +485,6 @@ setInterval(() => {
   });
 })();
 </script>
+
 </body>
 </html>
