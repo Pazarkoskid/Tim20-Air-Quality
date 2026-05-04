@@ -9,9 +9,23 @@ class UserProfile(models.Model):
     notifications_enabled = models.BooleanField(default=True)
     notify_email = models.BooleanField(default=False)
     notify_push = models.BooleanField(default=True)
+    phone = models.CharField(max_length=30, blank=True, default='')
 
     def __str__(self):
         return f'Profile of {self.user.username}'
+
+
+class SavedLocation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_locations')
+    name = models.CharField(max_length=100)
+    address = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.user.username})'
 
 
 class AirQualityRecord(models.Model):

@@ -207,6 +207,10 @@
 :root[data-theme="light"] .topbar { background: #ffffff; border-bottom: 1px solid #c8d4de; }
 
 :root[data-theme="light"] .card { background: #ffffff; border-color: #c8d4de; }
+
+  /* FIX: Map stays below fixed topbar and sidebar when scrolling */
+  #map { position: relative; z-index: 1 !important; }
+  .leaflet-control-container { z-index: 1 !important; }
 </style>
   {% block extra_head %}{% endblock %}
 </head>
