@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from airquality.forms import HistoryFilterForm, ProfileForm, RegisterForm
-from airquality.models import AirQualityRecord, Forecast, Notification, UserProfile
+from airquality.models import AirQualityRecord, Forecast, Notification, UserProfile, SavedLocation
 from airquality.services import fetch_air_quality, generate_forecast, save_record_and_notify
 
 
@@ -121,7 +121,7 @@ def api_stations(request):
                 "pm25": data["components"]["pm2_5"],
                 "pm10": data["components"]["pm10"],
                 "no2": data["components"]["no2"],
-                "aqi": data["main"]["aqi"] * 50
+                "aqi": {1: 25, 2: 75, 3: 125, 4: 175, 5: 250}.get(data["main"]["aqi"], 100)
             })
         except:
             pass
@@ -233,20 +233,18 @@ def forecast_view(request):
     labels     = json.dumps([f.forecast_time.strftime('%d.%m %H:%M') for f in forecasts])
     pred_aqi   = json.dumps([f.predicted_aqi for f in forecasts])
     pred_pm25  = json.dumps([f.predicted_pm25 or 0 for f in forecasts])
-    confidence = json.dumps([f.confidence for f in forecasts])
+    confidence = json.dumps([round(f.confidence * 100, 0) if f.confidence <= 1 else f.confidence for f in forecasts])
 
     # Snap at +24h, +48h, +72h from now
     snap24 = forecasts.filter(hours_ahead__lte=24).last()
     snap48 = forecasts.filter(hours_ahead__gt=24, hours_ahead__lte=48).last()
     snap72 = forecasts.filter(hours_ahead__gt=48, hours_ahead__lte=72).last()
 
-    # Build forecast_snaps list for template (forecast.html uses {% for snap, label in forecast_snaps %})
     forecast_snaps = [
-        (snap24, '+24 часа'),
-        (snap48, '+48 часа'),
-        (snap72, '+72 часа'),
+        (snap24, '+24 Часа'),
+        (snap48, '+48 Часа'),
+        (snap72, '+72 Часа'),
     ]
-    # Key forecasts: pick every 12h up to 72h
     key_forecasts = list(forecasts.filter(hours_ahead__in=[6, 12, 24, 36, 48, 60, 72]))
 
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
@@ -328,11 +326,15 @@ def api_unread_count(request):
 @login_required
 def settings_view(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    form = ProfileForm(request.POST or None, instance=profile,
+                       initial={'first_name': request.user.first_name,
+                                'last_name': request.user.last_name,
+                                'email': request.user.email})
+
     if request.method == 'POST':
         action = request.POST.get('action', 'profile')
-        # FIX #3: consume existing messages to prevent duplicates
-        list(messages.get_messages(request))
 
+        # FIX #8: change_password — use messages.add_message directly, no double message
         if action == 'change_password':
             new_pw  = request.POST.get('new_password', '').strip()
             confirm = request.POST.get('confirm_password', '').strip()
@@ -346,10 +348,16 @@ def settings_view(request):
                 request.user.set_password(new_pw)
                 request.user.save()
                 update_session_auth_hash(request, request.user)
+                # FIX #8: use storage.used flag workaround — add only once
+                # by clearing existing success messages first
+                storage = messages.get_messages(request)
+                storage.used = True
                 messages.success(request, '✅ Лозинката е успешно променета.')
-            return redirect('/settings/?tab=security')
+            return redirect('settings')
 
+        # FIX #4: profile save — save User fields + UserProfile fields directly
         if action == 'profile':
+            list(messages.get_messages(request))
             first_name = request.POST.get('first_name', '').strip()
             last_name  = request.POST.get('last_name', '').strip()
             email      = request.POST.get('email', '').strip()
@@ -358,10 +366,13 @@ def settings_view(request):
             if email:
                 request.user.email = email
             request.user.save()
+            profile.phone = request.POST.get('phone', '').strip()
+            profile.save()
             messages.success(request, '✅ Поставките се зачувани.')
             return redirect('/settings/?tab=profile')
 
         if action == 'thresholds':
+            list(messages.get_messages(request))
             try:
                 profile.aqi_threshold = int(request.POST.get('aqi_threshold', profile.aqi_threshold))
             except (ValueError, TypeError):
@@ -373,7 +384,7 @@ def settings_view(request):
             messages.success(request, '✅ Поставките се зачувани.')
             return redirect('/settings/?tab=thresholds')
 
-    # GET — always load fresh from DB
+    # GET — load fresh from DB
     form = ProfileForm(None, instance=profile,
                        initial={'first_name': request.user.first_name,
                                 'last_name': request.user.last_name,
@@ -385,12 +396,14 @@ def settings_view(request):
         ('thresholds', '🔔 Прагови'),
         ('advanced',   '⚙️ Напредно'),
     ]
+    saved_locations = SavedLocation.objects.filter(user=request.user)
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
     return render(request, 'airquality/settings.html', {
         'form': form, 'profile': profile,
         'unread_count': unread_count,
         'active_tab': active_tab,
         'tabs': tabs,
+        'saved_locations': saved_locations,
     })
 
 
@@ -702,6 +715,27 @@ def api_compare(request):
         'period1': {'label': f'{from_1} – {to_1}', 'labels': l1, 'values': v1},
         'period2': {'label': f'{from_2} – {to_2}', 'labels': l2, 'values': v2},
     })
+
+
+# ─────────────────────────────────────────────
+#  Saved Locations CRUD
+# ─────────────────────────────────────────────
+
+@login_required
+@require_POST
+def add_location(request):
+    name    = request.POST.get('name', '').strip()
+    address = request.POST.get('address', '').strip()
+    if name:
+        SavedLocation.objects.create(user=request.user, name=name, address=address)
+    return redirect('/settings/?tab=profile')
+
+
+@login_required
+@require_POST
+def delete_location(request, pk):
+    SavedLocation.objects.filter(user=request.user, pk=pk).delete()
+    return JsonResponse({'status': 'ok'})
 
 @login_required
 def api_refresh(request):
