@@ -212,6 +212,12 @@
   /* FIX: Map stays below fixed topbar and sidebar when scrolling */
   #map { position: relative; z-index: 1 !important; }
   .leaflet-control-container { z-index: 1 !important; }
+
+  @keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 </style>
   {% block extra_head %}{% endblock %}
 </head>
