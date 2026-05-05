@@ -359,3 +359,39 @@ def _predict(records_data, hours_ahead, forecast_time):
     pred_pm25 = max(1, pred_pm25)
     pred_pm10 = max(1, pred_pm10)
     return pred_aqi, pred_pm25, pred_pm10
+
+
+def analyze_trends(days=30):
+    from airquality.models import AirQualityRecord
+    cutoff = timezone.now() - timedelta(days=days)
+    records = AirQualityRecord.objects.filter(timestamp__gte=cutoff).order_by('timestamp')
+
+    if records.count() < 7:
+        return None
+
+    aqi_values = [r.aqi for r in records]
+
+    # Trend calculation (linear regression)
+    x = np.arange(len(aqi_values), dtype=float)
+    if len(x) > 1:
+        coeffs = np.polyfit(x, aqi_values, 1)
+        slope = coeffs[0]
+        avg_aqi = np.mean(aqi_values)
+
+        if slope > 0.1:
+            trend = "📈 Се влошува"
+        elif slope < -0.1:
+            trend = "📉 Се подобрува"
+        else:
+            trend = "➡️ Стабилно"
+
+        return {
+            'trend': trend,
+            'slope': round(slope, 4),
+            'avg_aqi': round(avg_aqi, 1),
+            'period_days': days
+        }
+    return None
+
+
+

@@ -32,4 +32,6 @@ urlpatterns = [
     path('settings/locations/delete/<int:pk>/', views.delete_location, name='delete_location'),
     # About / Help
     path('about/', views.about_view, name='about'),
+
+    path('api/trends/', views.api_trends, name='api_trends'),
 ]

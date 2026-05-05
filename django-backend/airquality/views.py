@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from airquality.forms import HistoryFilterForm, ProfileForm, RegisterForm
 from airquality.models import AirQualityRecord, Forecast, Notification, UserProfile, SavedLocation
-from airquality.services import fetch_air_quality, generate_forecast, save_record_and_notify
+from airquality.services import fetch_air_quality, generate_forecast, save_record_and_notify, analyze_trends
 
 
 # ─────────────────────────────────────────────
@@ -778,3 +778,17 @@ def api_refresh(request):
         'record': record.to_dict(),
         'unread_count': unread_count,
     })
+
+
+@login_required
+def api_trends(request):
+    try:
+        days = int(request.GET.get('days', 30))
+        trends = analyze_trends(days)
+
+        print(f"DEBUG: api_trends called with days={days}, trends={trends}")
+
+        return JsonResponse({'trends': trends})
+    except Exception as e:
+        print(f"ERROR in api_trends: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
