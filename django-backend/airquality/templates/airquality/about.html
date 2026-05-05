@@ -1,0 +1,213 @@
+{% extends "airquality/base.html" %}
+{% block title %} | Упатство и Политики{% endblock %}
+{% block page_title %}Упатство за апликацијата{% endblock %}
+
+{% block content %}
+<div style="max-width:860px;margin:0 auto;">
+
+  <!-- Hero -->
+  <div class="card" style="text-align:center;padding:40px 32px;margin-bottom:24px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);">
+    <div style="font-size:48px;margin-bottom:12px;">🌬️</div>
+    <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:8px;">Air Quality AI – Скопје</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.85);max-width:500px;margin:0 auto;">
+      Систем за следење на квалитетот на воздухот во реално време, со AI прогнози и персонализирани препораки.
+    </div>
+  </div>
+
+  <!-- AQI Scale -->
+  <div class="card" style="margin-bottom:24px;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px;">🎨 Скала на квалитет на воздух (AQI)</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+      AQI (Air Quality Index) е стандарден меѓународен индекс за мерење на загаденоста. Вредноста се пресметува врз основа на концентрациите на PM2.5, PM10, NO₂, CO, O₃ и SO₂.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      {% for aqi_range in aqi_guide %}
+      <div style="display:grid;grid-template-columns:130px 100px 1fr;gap:16px;align-items:center;padding:14px 18px;border-radius:10px;background:{{ aqi_range.bg }};">
+        <div style="font-weight:700;font-size:15px;color:{{ aqi_range.color }};">{{ aqi_range.range }}</div>
+        <div style="display:inline-flex;align-items:center;gap:6px;">
+          <span style="width:12px;height:12px;border-radius:50%;background:{{ aqi_range.color }};display:inline-block;"></span>
+          <span style="font-size:13px;font-weight:600;color:{{ aqi_range.color }};">{{ aqi_range.label }}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);">{{ aqi_range.desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Pollutants -->
+  <div class="card" style="margin-bottom:24px;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px;">🧪 Загадувачи — што значат?</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Секоја мерка претставува различен тип на загадувач со различни ефекти врз здравјето.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">PM2.5 <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(µg/m³)</span></div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Фини честички со пречник помал од 2.5 микрони. Навлегуваат длабоко во белите дробови. Граница: <strong>25 µg/m³</strong> (СЗО).</div>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">PM10 <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(µg/m³)</span></div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Покрупни честички (прашина, polen). Иритираат горните дишни патишта. Граница: <strong>50 µg/m³</strong> (СЗО).</div>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">NO₂ <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(µg/m³)</span></div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Азотен диоксид, настанува главно од сообраќај и индустрија. Иритира дишните патишта. Граница: <strong>40 µg/m³</strong>.</div>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">CO <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(µg/m³)</span></div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Јаглерод моноксид, безмирисен и отровен гас. Настанува при непотполно согорување. Граница: <strong>10,000 µg/m³</strong>.</div>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">O₃ <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(µg/m³)</span></div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Приземен озон, настанува при реакција на сончева светлина со загадувачи. Штетен за дишниот систем. Граница: <strong>100 µg/m³</strong>.</div>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">SO₂ <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(µg/m³)</span></div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">Сулфур диоксид, настанува при согорување на фосилни горива. Предизвикува киселински дождови. Граница: <strong>20 µg/m³</strong>.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features guide -->
+  <div class="card" style="margin-bottom:24px;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:20px;">📱 Водич низ апликацијата</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <span style="font-size:24px;width:36px;flex-shrink:0;">📊</span>
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:3px;">Контролна табла</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Главна страница со тековниот AQI, концентрации на загадувачи, 24-часовен граф и преглед на AI прогнозите за следните 72 часа.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <span style="font-size:24px;width:36px;flex-shrink:0;">🗺️</span>
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:3px;">Мапа</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Интерактивна карта на Скопје со 9 мерни станици по општини. Секоја станица прикажува AQI, PM2.5 и PM10 во реално време.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <span style="font-size:24px;width:36px;flex-shrink:0;">📈</span>
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:3px;">Историја</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Детален преглед на историски мерења со филтри (24h, 7 дена, 30 дена), графици по загадувач, табела со рангирање и споредба на два периоди.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <span style="font-size:24px;width:36px;flex-shrink:0;">🤖</span>
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:3px;">Прогноза (AI)</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">AI модели базирани на Keras LSTM мрежи предвидуваат PM10 вредности за следните 24h, 48h и 72h. Кога моделот не е достапен, се користи статистички fallback.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <span style="font-size:24px;width:36px;flex-shrink:0;">🔔</span>
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:3px;">Известувања</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Автоматски аларми кога AQI ќе го надмине вашиот праг. AI препораки за заштита приlagодени на тековната состојба на воздухот.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <span style="font-size:24px;width:36px;flex-shrink:0;">⚙️</span>
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:3px;">Поставки</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Прилагодете го прагот за AQI аларми, каналите за известување, личните информации и предефинираните локации.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommendations guide -->
+  <div class="card" style="margin-bottom:24px;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:20px;">🛡️ Препораки за заштита</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="padding:16px;background:rgba(63,182,139,.08);border:1px solid rgba(63,182,139,.25);border-radius:10px;">
+        <div style="font-weight:700;font-size:13px;color:#3fb68b;margin-bottom:8px;">✅ AQI 0–50 (Добар)</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+          • Слободни активности на отворено<br/>
+          • Идеално за спорт и прошетка<br/>
+          • Проветрувајте слободно<br/>
+          • Нема потреба од маска
+        </div>
+      </div>
+      <div style="padding:16px;background:rgba(245,197,66,.08);border:1px solid rgba(245,197,66,.25);border-radius:10px;">
+        <div style="font-weight:700;font-size:13px;color:#f5c542;margin-bottom:8px;">🟡 AQI 51–100 (Умерено)</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+          • Прифатливо за повеќето луѓе<br/>
+          • Внимание за чувствителни лица<br/>
+          • Намалете долготрајни активности<br/>
+          • Проветрувајте внимателно
+        </div>
+      </div>
+      <div style="padding:16px;background:rgba(240,136,74,.08);border:1px solid rgba(240,136,74,.25);border-radius:10px;">
+        <div style="font-weight:700;font-size:13px;color:#f0884a;margin-bottom:8px;">🟠 AQI 101–150 (Нездрав за чувствителни)</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+          • Ограничете активности на отворено<br/>
+          • Деца, постари и болни — внатре<br/>
+          • Разгледајте маска FFP2<br/>
+          • Затворете прозорците
+        </div>
+      </div>
+      <div style="padding:16px;background:rgba(224,80,80,.08);border:1px solid rgba(224,80,80,.25);border-radius:10px;">
+        <div style="font-weight:700;font-size:13px;color:#e05050;margin-bottom:8px;">🔴 AQI 151–200 (Нездрав)</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+          • Останете во затворен простор<br/>
+          • Маска N95/FFP3 задолжително<br/>
+          • Избегнувајте физички напор<br/>
+          • Консултирајте лекар ако е потребно
+        </div>
+      </div>
+      <div style="padding:16px;background:rgba(155,63,200,.08);border:1px solid rgba(155,63,200,.25);border-radius:10px;grid-column:span 2;">
+        <div style="font-weight:700;font-size:13px;color:#9b3fc8;margin-bottom:8px;">⚠️ AQI 201+ (Многу нездрав / Опасен)</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+          • Критична состојба — минимизирајте престој надвор • Користете пречистувач на воздух во затворен простор • Чувствителни групи — итна медицинска помош • Следете официјалните соопштенија
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data source -->
+  <div class="card" style="margin-bottom:24px;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:16px;">📡 Извори на податоци</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px;">🌤️</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px;">OpenWeatherMap</div>
+        <div style="font-size:12px;color:var(--text-muted);">Реални мерења на загадувачи од 9 мерни станици во Скопје</div>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px;">🤖</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px;">Keras LSTM</div>
+        <div style="font-size:12px;color:var(--text-muted);">AI модел обучен на историски мерења за прогноза на PM10</div>
+      </div>
+      <div style="padding:14px;background:var(--surface2);border-radius:10px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px;">🔄</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px;">APScheduler</div>
+        <div style="font-size:12px;color:var(--text-muted);">Автоматско освежување на податоците на секој час</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy & Contact -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+    <div class="card">
+      <div style="font-size:16px;font-weight:700;margin-bottom:12px;">🔒 Политика за приватност</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.7;">
+        Апликацијата собира само податоци потребни за функционирање: корисничко ime, е-пошта и поставки за известувања. Податоците не се споделуваат со трети страни. Историските мерења се чуваат за аналитика и подобрување на AI моделите.
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:16px;font-weight:700;margin-bottom:12px;">📬 Контакт и поддршка</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.7;">
+        Проектот е развиен од <strong>Тим 20</strong> во рамките на предметот Управување со ИКТ проекти.<br/><br/>
+        Репозиториум: <a href="https://github.com/Pazarkoskid/Tim20-Air-Quality" target="_blank" style="color:var(--accent);">GitHub / Tim20-Air-Quality</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// AQI guide data passed from view
+</script>
+{% endblock %}

@@ -57,13 +57,22 @@ def dashboard(request):
     chart_aqi    = [r.aqi for r in chart_records]
     chart_pm25   = [r.pm25 or 0 for r in chart_records]
 
-    forecasts_24 = Forecast.objects.filter(hours_ahead__lte=24).order_by('hours_ahead')
-    forecasts_48 = Forecast.objects.filter(hours_ahead__gt=24, hours_ahead__lte=48).order_by('hours_ahead')
-    forecasts_72 = Forecast.objects.filter(hours_ahead__gt=48, hours_ahead__lte=72).order_by('hours_ahead')
-
-    def avg_aqi(qs):
-        vals = [f.predicted_aqi for f in qs if f.predicted_aqi]
-        return round(sum(vals) / len(vals), 1) if vals else None
+    # SYNC with forecast_view: same stale-check + same snap logic
+    now_fc = timezone.now()
+    today_start = now_fc.replace(hour=0, minute=0, second=0, microsecond=0)
+    stale = Forecast.objects.filter(generated_at__lt=today_start)
+    if stale.exists():
+        stale.delete()
+    all_forecasts = Forecast.objects.filter(forecast_time__gte=now_fc).order_by('hours_ahead')
+    if not all_forecasts.exists():
+        try:
+            generate_forecast()
+            all_forecasts = Forecast.objects.filter(forecast_time__gte=now_fc).order_by('hours_ahead')
+        except Exception:
+            pass
+    snap24 = all_forecasts.filter(hours_ahead__lte=24).last()
+    snap48 = all_forecasts.filter(hours_ahead__gt=24, hours_ahead__lte=48).last()
+    snap72 = all_forecasts.filter(hours_ahead__gt=48, hours_ahead__lte=72).last()
 
     unread_count = Notification.objects.filter(user=request.user, read=False).count()
     context = {
@@ -72,9 +81,9 @@ def dashboard(request):
         'chart_labels': json.dumps(chart_labels),
         'chart_aqi': json.dumps(chart_aqi),
         'chart_pm25': json.dumps(chart_pm25),
-        'forecast_24': avg_aqi(forecasts_24),
-        'forecast_48': avg_aqi(forecasts_48),
-        'forecast_72': avg_aqi(forecasts_72),
+        'forecast_24': round(snap24.predicted_aqi, 1) if snap24 else None,
+        'forecast_48': round(snap48.predicted_aqi, 1) if snap48 else None,
+        'forecast_72': round(snap72.predicted_aqi, 1) if snap72 else None,
         'unread_count': unread_count,
         'main_pollutant': latest.main_pollutant() if latest else '',
         'aqi_description': latest.aqi_description() if latest else '',
@@ -736,6 +745,28 @@ def add_location(request):
 def delete_location(request, pk):
     SavedLocation.objects.filter(user=request.user, pk=pk).delete()
     return JsonResponse({'status': 'ok'})
+
+
+# ─────────────────────────────────────────────
+#  About / Help page
+# ─────────────────────────────────────────────
+
+def about_view(request):
+    aqi_guide = [
+        {'range': '0 – 50',   'label': 'Добар',                    'color': '#3fb68b', 'bg': 'rgba(63,182,139,.06)',  'desc': 'Квалитетот е одличен. Слободно уживајте во активности на отворено без ограничувања.'},
+        {'range': '51 – 100', 'label': 'Умерено',                  'color': '#f5c542', 'bg': 'rgba(245,197,66,.06)',  'desc': 'Прифатливо за повеќето луѓе. Чувствителните лица треба да внимаваат.'},
+        {'range': '101 – 150','label': 'Нездрав за чувствителни',  'color': '#f0884a', 'bg': 'rgba(240,136,74,.06)',  'desc': 'Чувствителни групи (деца, постари, болни) треба да ги намалат активностите на отворено.'},
+        {'range': '151 – 200','label': 'Нездрав',                   'color': '#e05050', 'bg': 'rgba(224,80,80,.06)',   'desc': 'Сите треба да ги намалат активностите на отворено. Чувствителните да останат внатре.'},
+        {'range': '201 – 300','label': 'Многу нездрав',             'color': '#9b3fc8', 'bg': 'rgba(155,63,200,.06)', 'desc': 'Предупредување за здравје. Сите треба да избегнуваат активности на отворено.'},
+        {'range': '301+',     'label': 'Опасен',                    'color': '#ff4444', 'bg': 'rgba(255,68,68,.06)',  'desc': 'Итна состојба. Останете во затворен простор. Следете официјалните препораки.'},
+    ]
+    unread_count = 0
+    if request.user.is_authenticated:
+        unread_count = Notification.objects.filter(user=request.user, read=False).count()
+    return render(request, 'airquality/about.html', {
+        'aqi_guide': aqi_guide,
+        'unread_count': unread_count,
+    })
 
 @login_required
 def api_refresh(request):

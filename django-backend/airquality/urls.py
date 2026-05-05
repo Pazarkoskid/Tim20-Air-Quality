@@ -30,4 +30,6 @@ urlpatterns = [
     # Saved locations
     path('settings/locations/add/', views.add_location, name='add_location'),
     path('settings/locations/delete/<int:pk>/', views.delete_location, name='delete_location'),
+    # About / Help
+    path('about/', views.about_view, name='about'),
 ]
