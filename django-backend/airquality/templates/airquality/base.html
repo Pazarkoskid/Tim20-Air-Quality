@@ -27,7 +27,8 @@
       --sidebar-w: 220px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; display: flex; }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    .app-wrapper { display: flex; flex: 1; }
 
     /* ── Sidebar ── */
     .sidebar {
@@ -88,7 +89,7 @@
     .topbar-btn.primary:hover { background: var(--accent2); }
 
     /* ── Main ── */
-    main { margin-left: var(--sidebar-w); margin-top: 56px; padding: 28px 28px; flex: 1; min-height: calc(100vh - 56px); }
+    main { margin-left: var(--sidebar-w); margin-top: 56px; padding: 28px 28px; flex: 1; }
 
     /* ── Cards ── */
     .card {
@@ -215,6 +216,7 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
+<div class="app-wrapper">
 
 {% if user.is_authenticated %}
 <!-- Sidebar -->
@@ -490,5 +492,15 @@ setInterval(() => {
 })();
 </script>
 
+</div><!-- end .app-wrapper -->
+<!-- Global footer -->
+<footer style="margin-left:200px;padding:18px 32px;border-top:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-muted);width:86.8%;box-sizing:border-box;">
+  <span>© 2026 Air Quality AI – Скопје. Сите права се задржани.</span>
+  <div style="display:flex;gap:20px;">
+    <a href="/about/" style="color:var(--text-muted);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">Политика за приватност</a>
+    <a href="/about/" style="color:var(--text-muted);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">Услови за користење</a>
+    <a href="/about/" style="color:var(--text-muted);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">Контакт</a>
+  </div>
+</footer>
 </body>
 </html>
