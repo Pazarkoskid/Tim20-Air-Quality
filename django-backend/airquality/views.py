@@ -15,7 +15,11 @@ from django.views.decorators.http import require_POST
 
 from airquality.forms import HistoryFilterForm, ProfileForm, RegisterForm
 from airquality.models import AirQualityRecord, Forecast, Notification, UserProfile, SavedLocation
-from airquality.services import fetch_air_quality, generate_forecast, save_record_and_notify, analyze_trends
+from airquality.services import fetch_air_quality, generate_forecast, save_record_and_notify
+try:
+    from airquality.services import analyze_trends
+except ImportError:
+    analyze_trends = None
 
 
 # ─────────────────────────────────────────────
@@ -57,17 +61,15 @@ def dashboard(request):
     chart_aqi    = [r.aqi for r in chart_records]
     chart_pm25   = [r.pm25 or 0 for r in chart_records]
 
-    # SYNC with forecast_view: same stale-check + same snap logic
-    now_fc = timezone.now()
-    today_start = now_fc.replace(hour=0, minute=0, second=0, microsecond=0)
-    stale = Forecast.objects.filter(generated_at__lt=today_start)
-    if stale.exists():
-        stale.delete()
-    all_forecasts = Forecast.objects.filter(forecast_time__gte=now_fc).order_by('hours_ahead')
+    # Sync forecasts — same logic as forecast_view
+    _now_fc = timezone.now()
+    _today_start = _now_fc.replace(hour=0, minute=0, second=0, microsecond=0)
+    Forecast.objects.filter(generated_at__lt=_today_start).delete()
+    all_forecasts = Forecast.objects.filter(forecast_time__gte=_now_fc).order_by('hours_ahead')
     if not all_forecasts.exists():
         try:
             generate_forecast()
-            all_forecasts = Forecast.objects.filter(forecast_time__gte=now_fc).order_by('hours_ahead')
+            all_forecasts = Forecast.objects.filter(forecast_time__gte=_now_fc).order_by('hours_ahead')
         except Exception:
             pass
     snap24 = all_forecasts.filter(hours_ahead__lte=24).last()
@@ -238,6 +240,11 @@ def forecast_view(request):
 
     if not model_used:
         model_used = 'статистички модел'
+    # Human-friendly label
+    if model_used and ('Keras' in model_used or 'AI' in model_used):
+        model_used = 'Напреден модел за длабоко учење (Deep Learning)'
+    else:
+        model_used = 'Статистички модел (Deep Learning не е достапен)'
 
     labels     = json.dumps([f.forecast_time.strftime('%d.%m %H:%M') for f in forecasts])
     pred_aqi   = json.dumps([f.predicted_aqi for f in forecasts])
@@ -269,7 +276,7 @@ def forecast_view(request):
         'forecast_snaps': forecast_snaps,
         'key_forecasts': key_forecasts,
         'unread_count': unread_count,
-        'model_used': model_used,
+        'model_used': 'Напреден модел за длабоко учење (Deep Learning)' if model_used and ('Keras' in model_used or 'AI' in model_used) else 'Статистички модел (Deep Learning не е достапен)',
         'forecast_date': now,
     })
 
@@ -744,7 +751,10 @@ def add_location(request):
 @require_POST
 def delete_location(request, pk):
     SavedLocation.objects.filter(user=request.user, pk=pk).delete()
-    return JsonResponse({'status': 'ok'})
+    # Support both form POST (redirect) and AJAX (JSON)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok'})
+    return redirect('/settings/?tab=profile')
 
 
 # ─────────────────────────────────────────────
@@ -768,6 +778,22 @@ def about_view(request):
         'unread_count': unread_count,
     })
 
+
+# ─────────────────────────────────────────────
+#  Test notification (dev helper)
+# ─────────────────────────────────────────────
+
+@login_required
+def api_test_notification(request):
+    """Creates a test notification for the current user regardless of threshold."""
+    from airquality.models import Notification
+    Notification.objects.create(
+        user=request.user,
+        message="⚠️ Тест известување — нивото на загаденост е зголемено (AQI 105). PM2.5: 32.5 µg/m³. Препорачуваме да останете на затворено.",
+        aqi_value=105.0,
+    )
+    return JsonResponse({'status': 'ok', 'message': 'Тест известување додадено'})
+
 @login_required
 def api_refresh(request):
     data = fetch_air_quality()
@@ -780,15 +806,17 @@ def api_refresh(request):
     })
 
 
+# ─────────────────────────────────────────────
+#  API: Trend analysis
+# ─────────────────────────────────────────────
+
 @login_required
 def api_trends(request):
     try:
         days = int(request.GET.get('days', 30))
+        if analyze_trends is None:
+            return JsonResponse({'trends': None, 'error': 'analyze_trends not available'})
         trends = analyze_trends(days)
-
-        print(f"DEBUG: api_trends called with days={days}, trends={trends}")
-
         return JsonResponse({'trends': trends})
     except Exception as e:
-        print(f"ERROR in api_trends: {e}")
         return JsonResponse({'error': str(e)}, status=500)

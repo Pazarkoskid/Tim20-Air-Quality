@@ -2,8 +2,8 @@
 Django settings for Air Quality AI – Skopje
 """
 
-import os
 from pathlib import Path
+import os
 from dotenv import load_dotenv
 
 load_dotenv()

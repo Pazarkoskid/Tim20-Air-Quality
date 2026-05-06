@@ -58,7 +58,7 @@ def _load_ai_model():
         # Import keras only when needed
         os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')
         from tensorflow import keras  # type: ignore
-        _AI_MODEL = keras.models.load_model(str(model_path))
+        _AI_MODEL = keras.models.load_model(str(model_path), safe_mode=False)
         logger.info("Loaded AI model: %s  features=%d  lookback=%d",
                     run_name, _AI_META['n_features'], _AI_META['lookback'])
         return _AI_MODEL, _AI_SCALER, _AI_META, _AI_FEATURES

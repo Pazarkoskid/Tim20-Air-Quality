@@ -127,18 +127,17 @@
           </form>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:8px;">
+        <div id="locations-list" style="display:flex;flex-direction:column;gap:8px;">
           {% for loc in saved_locations %}
-          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+          <div id="loc-{{ loc.pk }}" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);transition:opacity .3s;">
             <span style="font-size:18px;">📍</span>
             <div style="flex:1;">
               <div style="font-size:13px;font-weight:600;">{{ loc.name }}</div>
               {% if loc.address %}<div style="font-size:12px;color:var(--text-muted);">{{ loc.address }}</div>{% endif %}
             </div>
-            <form method="POST" action="{% url 'delete_location' loc.pk %}" style="display:inline;">
-              {% csrf_token %}
-              <button type="submit" style="background:none;border:none;cursor:pointer;color:#e05050;font-size:16px;" title="Избриши">🗑</button>
-            </form>
+            <button onclick="deleteLocation({{ loc.pk }}, '{{ csrf_token }}')"
+              style="background:none;border:none;cursor:pointer;color:#e05050;font-size:16px;padding:4px 6px;"
+              title="Избриши">🗑</button>
           </div>
           {% empty %}
           <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">Немате локации. Кликнете „+ Додај".</div>
@@ -222,11 +221,67 @@
 
 {% block scripts %}
 <script>
-// Highlight active tab from URL param
+// Tab hover effects
 document.querySelectorAll('.settings-tab').forEach(t => {
-  t.addEventListener('mouseenter', () => { if (!t.style.borderBottomColor.includes('accent')) t.style.color = 'var(--text)'; });
-  t.addEventListener('mouseleave', () => { if (!t.classList.contains('active-tab')) t.style.color = 'var(--text-muted)'; });
+  t.addEventListener('mouseenter', () => { t.style.color = 'var(--accent)'; });
+  t.addEventListener('mouseleave', () => {
+    if (t.getAttribute('href') && !window.location.href.includes(t.getAttribute('href'))) {
+      t.style.color = 'var(--text-muted)';
+    }
+  });
 });
-document.querySelector('select').className = 'form-control';
+const sel = document.querySelector('select');
+if (sel) sel.className = 'form-control';
+
+// Delete location with instant UI feedback
+function deleteLocation(pk, csrfToken) {
+  const el = document.getElementById('loc-' + pk);
+  if (!el) return;
+
+  // Optimistic UI — fade out immediately
+  el.style.opacity = '0.4';
+  el.style.pointerEvents = 'none';
+
+  fetch('/settings/locations/delete/' + pk + '/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'ok') {
+      // Animate removal
+      el.style.transition = 'all 0.3s ease';
+      el.style.maxHeight = el.offsetHeight + 'px';
+      el.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        el.style.maxHeight = '0';
+        el.style.padding = '0';
+        el.style.margin = '0';
+        el.style.opacity = '0';
+        setTimeout(() => {
+          el.remove();
+          // Show empty message if no locations left
+          const container = document.getElementById('locations-list');
+          if (container && container.children.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">Немате локации. Кликнете „+ Додај".</div>';
+          }
+        }, 320);
+      });
+    } else {
+      // Revert on error
+      el.style.opacity = '1';
+      el.style.pointerEvents = '';
+      alert('Грешка при бришење.');
+    }
+  })
+  .catch(() => {
+    el.style.opacity = '1';
+    el.style.pointerEvents = '';
+    alert('Грешка при поврзување со серверот.');
+  });
+}
 </script>
 {% endblock %}
