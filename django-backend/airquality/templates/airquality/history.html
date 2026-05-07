@@ -23,14 +23,9 @@
       {{ form.date_to }}
     </div>
     <button type="submit" class="btn btn-primary">🔍 Примени филтри</button>
-    <span style="margin-left:auto;font-size:13px;color:var(--text-muted);">
-      Прикажани {{ records|length }} од вкупно {{ total }} записи
+    <span style="margin-left:auto;font-size:13px;color:var(--text-muted);" id="records-count-label">
+      Вкупно {{ total }} записи
     </span>
-    <form method="POST" action="{% url 'import_csv' %}" enctype="multipart/form-data" style="display:flex;align-items:center;gap:8px;">
-      {% csrf_token %}
-      <input type="file" name="csv_file" accept=".csv" class="form-control" style="max-width:200px;padding:6px 10px;font-size:12px;"/>
-      <button type="submit" class="btn btn-secondary">⬆ Увези</button>
-    </form>
   </form>
 </div>
 
@@ -63,9 +58,9 @@
           <th>Статус</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="records-tbody">
         {% for r in records %}
-        <tr>
+        <tr class="record-row">
           <td class="font-mono" style="white-space:nowrap;">{{ r.timestamp|date:"d.m.Y H:i" }}</td>
           <td style="font-size:12px;">
             AQI <strong>{{ r.aqi|floatformat:0 }}</strong>
@@ -84,14 +79,17 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">Нема записи за избраниот период.</td></tr>
+        <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:32px;">Нема записи за избраниот период.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <!-- Pagination controls -->
+  <div id="table-pagination" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;flex-wrap:wrap;"></div>
+  <div id="table-page-info" style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:6px;"></div>
 </div>
 
-<!-- ── CR-002: Ranking table ── -->
+<!-- CR-002: Ranking -->
 <div class="card" style="margin-top:24px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <div>
@@ -128,7 +126,7 @@
   </div>
 </div>
 
-<!-- ── CR-003: Period comparison ── -->
+<!-- CR-003: Comparison -->
 <div class="card" style="margin-top:24px;">
   <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📊 Споредба на два периоди</div>
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Споредете ги AQI вредностите помеѓу два различни временски периоди</div>
@@ -161,15 +159,79 @@
 
 {% block scripts %}
 <script>
-// ── Original charts ──
+// ── JS Pagination за табелата (без reload) ──
+(function() {
+  const ROWS_PER_PAGE = 10;
+  const rows = Array.from(document.querySelectorAll('.record-row'));
+  const pagination = document.getElementById('table-pagination');
+  const pageInfo   = document.getElementById('table-page-info');
+  const countLabel = document.getElementById('records-count-label');
+  let currentPage  = 1;
+
+  function totalPages() {
+    return Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
+  }
+
+  function showPage(page) {
+    currentPage = Math.max(1, Math.min(page, totalPages()));
+    const start = (currentPage - 1) * ROWS_PER_PAGE;
+    const end   = start + ROWS_PER_PAGE;
+    rows.forEach((r, i) => {
+      r.style.display = (i >= start && i < end) ? '' : 'none';
+    });
+    renderPagination();
+    if (rows.length > 0) {
+      pageInfo.textContent = `Прикажани ${start + 1}–${Math.min(end, rows.length)} од вкупно ${rows.length} записи`;
+      if (countLabel) countLabel.textContent = `Прикажани ${start + 1}–${Math.min(end, rows.length)} од вкупно ${rows.length} записи`;
+    }
+  }
+
+  function btnStyle(active) {
+    return `padding:6px 13px;border-radius:6px;font-size:13px;cursor:pointer;border:1px solid var(--border);
+            background:${active ? 'var(--accent)' : 'var(--surface2)'};
+            color:${active ? '#fff' : 'var(--text)'};font-weight:${active ? '600' : '400'};`;
+  }
+
+  function renderPagination() {
+    pagination.innerHTML = '';
+    const total = totalPages();
+    if (total <= 1) return;
+
+    const addBtn = (label, page, disabled=false, active=false) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.style.cssText = btnStyle(active);
+      btn.disabled = disabled;
+      if (disabled) btn.style.opacity = '0.4';
+      btn.onclick = () => showPage(page);
+      pagination.appendChild(btn);
+    };
+
+    addBtn('«', 1, currentPage === 1);
+    addBtn('‹', currentPage - 1, currentPage === 1);
+
+    const rangeStart = Math.max(1, currentPage - 2);
+    const rangeEnd   = Math.min(total, currentPage + 2);
+    for (let i = rangeStart; i <= rangeEnd; i++) {
+      addBtn(String(i), i, false, i === currentPage);
+    }
+
+    addBtn('›', currentPage + 1, currentPage === total);
+    addBtn('»', total, currentPage === total);
+  }
+
+  if (rows.length > 0) {
+    showPage(1);
+  }
+})();
+
+// ── Charts ──
 const labels = {{ chart_labels|safe }};
 const pm25 = {{ chart_pm25|safe }};
 const pm10 = {{ chart_pm10|safe }};
 const no2  = {{ chart_no2|safe }};
 const co   = {{ chart_co|safe }};
 
-// Health thresholds (µg/m³) → category label + color
-// PM2.5 uses EPA breakpoints; PM10, NO2, CO use EEA/WHO 24h guidelines
 function categorize(pollutant, v) {
   if (v == null || isNaN(v)) return { label: '–', color: '#8b949e' };
   const t = {
@@ -182,15 +244,6 @@ function categorize(pollutant, v) {
   return { label: 'Опасен', color: '#ff6b6b' };
 }
 
-
-<!--const chartOpts = {-->
-<!--  responsive: true,-->
-<!--  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },-->
-<!--  scales: {-->
-<!--    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', maxTicksLimit: 8, font: { size: 10 } } },-->
-<!--    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8b949e', font: { size: 10 } } }-->
-<!--  }-->
-<!--};-->
 const hoverLinePlugin = {
   id: 'hoverLine',
   afterDraw(chart) {
@@ -207,8 +260,9 @@ const hoverLinePlugin = {
     ctx.strokeStyle = 'rgba(46,168,213,0.5)';
     ctx.stroke();
     ctx.restore();
-    }
+  }
 };
+
 function buildChartOpts(pollutantKeys) {
   return {
     responsive: true,
@@ -228,9 +282,7 @@ function buildChartOpts(pollutantKeys) {
         padding: 12,
         cornerRadius: 8,
         displayColors: true,
-        boxWidth: 10,
-        boxHeight: 10,
-        boxPadding: 6,
+        boxWidth: 10, boxHeight: 10, boxPadding: 6,
         callbacks: {
           title: (items) => items.length ? `🕒 ${items[0].label}` : '',
           label: (ctx) => {
@@ -251,37 +303,25 @@ function buildChartOpts(pollutantKeys) {
 }
 
 function hoverStyle(color) {
-  return {
-    pointRadius: 0,
-    pointHoverRadius: 6,
-    pointHoverBackgroundColor: color,
-    pointHoverBorderColor: '#fff',
-    pointHoverBorderWidth: 2,
-  };
+  return { pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: color, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2 };
 }
 
 new Chart(document.getElementById('chartParticles'), {
   type: 'line',
-  data: {
-    labels,
-    datasets: [
-      { label: 'PM2.5', data: pm25, borderColor: '#f0884a', backgroundColor: 'rgba(240,136,74,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#f0884a') },
-      { label: 'PM10',  data: pm10, borderColor: '#9b3fc8', backgroundColor: 'rgba(155,63,200,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#9b3fc8') }
-    ]
-  },
+  data: { labels, datasets: [
+    { label: 'PM2.5', data: pm25, borderColor: '#f0884a', backgroundColor: 'rgba(240,136,74,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#f0884a') },
+    { label: 'PM10',  data: pm10, borderColor: '#9b3fc8', backgroundColor: 'rgba(155,63,200,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#9b3fc8') }
+  ]},
   options: buildChartOpts(['pm25', 'pm10']),
   plugins: [hoverLinePlugin]
 });
 
 new Chart(document.getElementById('chartGases'), {
   type: 'line',
-  data: {
-    labels,
-    datasets: [
-      { label: 'NO₂', data: no2, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#2ea8d5') },
-      { label: 'CO',  data: co,  borderColor: '#3fb68b', backgroundColor: 'rgba(63,182,139,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#3fb68b') }
-    ]
-  },
+  data: { labels, datasets: [
+    { label: 'NO₂', data: no2, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#2ea8d5') },
+    { label: 'CO',  data: co,  borderColor: '#3fb68b', backgroundColor: 'rgba(63,182,139,0.07)', fill: true, tension: 0.4, borderWidth: 2, ...hoverStyle('#3fb68b') }
+  ]},
   options: buildChartOpts(['no2', 'co']),
   plugins: [hoverLinePlugin]
 });
@@ -292,7 +332,7 @@ document.querySelector('[name=period]')?.addEventListener('change', function() {
   document.getElementById('custom-dates2').style.display = show ? 'block' : 'none';
 });
 
-// ── CR-002: Ranking table ──
+// ── CR-002: Ranking ──
 function rankRow(item) {
   return `<div style="display:grid;grid-template-columns:100px 55px 75px 1fr;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
     <span style="font-size:12px;font-weight:600;">${item.date}</span>
@@ -316,7 +356,7 @@ function loadRanking() {
     .catch(() => { w.innerHTML = b.innerHTML = '<span style="color:var(--text-muted)">Грешка при вчитување</span>'; });
 }
 
-// ── CR-003: Comparison chart ──
+// ── CR-003: Comparison ──
 let compareChart = null;
 
 function loadComparison() {
@@ -324,11 +364,7 @@ function loadComparison() {
   const t1 = document.getElementById('cmp-to1').value;
   const f2 = document.getElementById('cmp-from2').value;
   const t2 = document.getElementById('cmp-to2').value;
-
-  if (!f1 || !t1 || !f2 || !t2) {
-    alert('Изберете датуми за двата периоди.');
-    return;
-  }
+  if (!f1 || !t1 || !f2 || !t2) { alert('Изберете датуми за двата периоди.'); return; }
 
   fetch(`/api/compare/?from1=${f1}&to1=${t1}&from2=${f2}&to2=${t2}`)
     .then(r => r.json())
@@ -337,19 +373,14 @@ function loadComparison() {
       document.getElementById('compare-placeholder').style.display = 'none';
       const ctx = document.getElementById('compare-chart').getContext('2d');
       if (compareChart) compareChart.destroy();
-
       const maxLen = Math.max(data.period1.labels.length, data.period2.labels.length);
       const xLabels = Array.from({length: maxLen}, (_, i) => i + 'h');
-
       compareChart = new Chart(ctx, {
         type: 'line',
-        data: {
-          labels: xLabels,
-          datasets: [
-            { label: data.period1.label, data: data.period1.values, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.4, spanGaps: true },
-            { label: data.period2.label, data: data.period2.values, borderColor: '#e05050', backgroundColor: 'rgba(224,80,80,0.08)',   borderWidth: 2, pointRadius: 0, tension: 0.4, spanGaps: true }
-          ]
-        },
+        data: { labels: xLabels, datasets: [
+          { label: data.period1.label, data: data.period1.values, borderColor: '#2ea8d5', backgroundColor: 'rgba(46,168,213,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.4, spanGaps: true },
+          { label: data.period2.label, data: data.period2.values, borderColor: '#e05050', backgroundColor: 'rgba(224,80,80,0.08)',   borderWidth: 2, pointRadius: 0, tension: 0.4, spanGaps: true }
+        ]},
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') || '#ccc', font: { size: 12 } } } },
@@ -360,17 +391,15 @@ function loadComparison() {
         }
       });
     })
-    .catch(() => alert('Грешка при споредба. Провери дали постојат податоци за избраните периоди.'));
+    .catch(() => alert('Грешка при споредба.'));
 }
 
-// Init on page load
 document.addEventListener('DOMContentLoaded', function() {
   loadRanking();
-  // Set default comparison dates: last 7 days vs week before that
   const fmt = d => d.toISOString().split('T')[0];
-  const today    = new Date();
-  const d7       = new Date(today - 7*864e5);
-  const d14      = new Date(today - 14*864e5);
+  const today = new Date();
+  const d7    = new Date(today - 7*864e5);
+  const d14   = new Date(today - 14*864e5);
   document.getElementById('cmp-from1').value = fmt(d7);
   document.getElementById('cmp-to1').value   = fmt(today);
   document.getElementById('cmp-from2').value = fmt(d14);
