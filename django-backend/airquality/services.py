@@ -253,6 +253,22 @@ def save_record_and_notify(data: dict):
             message=msg,
             aqi_value=record.aqi,
         )
+
+        # Send email if notify_email is enabled and user has email
+        if profile.notify_email and profile.user.email:
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings as _s
+                send_mail(
+                    subject=f'Air Quality AI – Известување за воздух (AQI {record.aqi:.0f})',
+                    message=msg,
+                    from_email=getattr(_s, 'DEFAULT_FROM_EMAIL', 'noreply@airquality.mk'),
+                    recipient_list=[profile.user.email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                logger.warning("Email send failed: %s", e)
+
     return record
 
 
@@ -265,8 +281,6 @@ def _run_inference_subprocess(window, scaler, feature_names, patched_path):
     Runs Keras inference in a separate process to avoid Django memory crash
     on Windows with TensorFlow.
     """
-    logger.warning("SUBPROCESS starting, patched_path=%s, exists=%s",
-                   patched_path, os.path.exists(patched_path))
     import subprocess, sys, tempfile, pickle as _pk
 
     _tmp_in  = tempfile.mktemp(suffix='.pkl')
