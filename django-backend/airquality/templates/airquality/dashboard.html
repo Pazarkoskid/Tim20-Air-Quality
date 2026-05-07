@@ -153,19 +153,6 @@
   <canvas id="chartMain" style="max-height:200px;"></canvas>
 </div>
 
-
-<!-- Trend Analysis -->
-<div class="card mb-20">
-  <div class="card-title">📈 Анализа на трендови</div>
-  <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Тренд на квалитетот на воздухот во последните 30 дена</div>
-  <div id="trends-container" style="display:flex;flex-direction:column;gap:12px;">
-    <div style="text-align:center;padding:20px;color:var(--text-muted);">
-      <div class="spinner" style="width:20px;height:20px;border:2px solid var(--border);border-top:2px solid var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>
-      Вчитување на трендови...
-    </div>
-  </div>
-</div>
-
 <!-- Stations -->
 <div class="card">
   <div class="card-title">Последни записи по мерни станици</div>
@@ -262,52 +249,6 @@ if (ctx && labels.length) {
     });
 }
 
-async function loadTrends() {
-  try {
-    const res = await fetch("/api/trends/?days=30");
-    const data = await res.json();
-
-    const container = document.getElementById("trends-container");
-
-    if (data.trends) {
-      const trend = data.trends;
-      container.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-          <div>
-            <div style="font-size:14px;font-weight:600;margin-bottom:2px;">${trend.trend}</div>
-            <div style="font-size:12px;color:var(--text-muted);">Просечен AQI: ${trend.avg_aqi}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:18px;font-weight:700;color:var(--accent);">${trend.slope > 0 ? '↗️' : trend.slope < 0 ? '↘️' : '➡️'}</div>
-            <div style="font-size:11px;color:var(--text-muted);">slope: ${trend.slope}</div>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);text-align:center;">
-          Анализирани ${trend.period_days} дена историски податоци
-        </div>
-      `;
-    } else {
-      container.innerHTML = `
-        <div style="text-align:center;padding:20px;color:var(--text-muted);">
-          <div style="font-size:16px;margin-bottom:8px;">📊 Недоволно податоци</div>
-          <div style="font-size:12px;">Потребни се минимум 7 записи за анализа на трендови.</div>
-          <div style="font-size:11px;margin-top:8px;">Податоците се собираат автоматски секој час.</div>
-        </div>
-      `;
-    }
-  } catch (error) {
-    console.error("Error loading trends:", error);
-    document.getElementById("trends-container").innerHTML = `
-      <div style="text-align:center;padding:20px;color:var(--text-muted);">
-        <div style="font-size:16px;margin-bottom:8px;">❌ Грешка</div>
-        <div style="font-size:12px;">Не може да се вчитаат трендовите.</div>
-        <div style="font-size:11px;margin-top:8px;">Проверете конзолата за детали.</div>
-      </div>
-    `;
-  }
-}
-
 loadStationsTable();
-loadTrends();
 </script>
 {% endblock %}

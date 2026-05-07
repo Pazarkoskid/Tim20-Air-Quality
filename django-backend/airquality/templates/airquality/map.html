@@ -12,7 +12,7 @@
   .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); transition: all .15s; }
   .filter-chip.active { border-color: var(--accent); background: var(--accent); color: #fff; }
   .map-controls { display: grid; grid-template-columns: 220px 1fr; gap: 16px; margin-bottom: 16px; }
-  #stations-values { margin-top:16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+  #stations-values { margin-top:16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
 
   /* FIX: Leaflet popup adapts to light/dark theme */
   .leaflet-popup-content-wrapper,
@@ -166,19 +166,16 @@ window.addEventListener('load', function() {
                     })
                 }).addTo(stationLayerGroup)
                   .bindPopup(`
-  <div style="font-family:Arial,sans-serif;min-width:180px;">
-    <div style="font-weight:700;font-size:14px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:6px;">${m.name}</div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+  <div style="font-family:Arial,sans-serif;min-width:160px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:6px;">${m.name}</div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
       <span>AQI:</span><strong style="color:${aqiColor(avg)};">${Math.round(avg)}</strong>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-      <span>PM2.5:</span><span>${(m.pm25 != null && m.pm25 > 0) ? m.pm25.toFixed(1)+' µg/m³' : '–'}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-      <span>PM10:</span><span>${(m.pm10 != null && m.pm10 > 0) ? m.pm10.toFixed(1)+' µg/m³' : '–'}</span>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+      <span>PM2.5:</span><span>${m.data?.pm2_5 ? m.data.pm2_5.toFixed(1)+' µg' : '–'}</span>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:12px;">
-      <span>NO₂:</span><span>${(m.no2 != null && m.no2 > 0) ? m.no2.toFixed(1)+' µg/m³' : '–'}</span>
+      <span>PM10:</span><span>${m.data?.pm10 ? m.data.pm10.toFixed(1)+' µg' : '–'}</span>
     </div>
   </div>
 `)
@@ -195,30 +192,19 @@ window.addEventListener('load', function() {
             activeFilters.forEach(f => { total += m[f]; count++; });
             const avg = count>0 ? total/count : m.aqi;
 
-            const aqiColor = avg>150?'#e05050':avg>100?'#f0884a':avg>50?'#f5c542':'#3fb68b';
-            const aqiLabel = avg>150?'Нездрав':avg>100?'Умерено загаден':avg>50?'Умерено':'Добар';
-
             const div = document.createElement('div');
-            div.style.cssText = `
-                background:var(--surface);
-                border:1px solid var(--border);
-                border-left:4px solid ${aqiColor};
-                padding:12px 14px;
-                border-radius:8px;
-                color:var(--text);
-            `;
+            div.style.backgroundColor = 'var(--surface)';
+            div.style.padding = '8px';
+            div.style.borderRadius = '8px';
+            div.style.color = 'var(--text)';
+            div.style.textAlign = 'center';
             div.innerHTML = `
-                <div style="font-weight:700;font-size:13px;margin-bottom:6px;">${m.name}</div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span style="font-size:22px;font-weight:700;color:${aqiColor};">${Math.round(avg)}</span>
-                    <span style="font-size:11px;background:${aqiColor}22;color:${aqiColor};border-radius:10px;padding:2px 8px;">${aqiLabel}</span>
-                </div>
-                <div style="font-size:11px;color:var(--text-muted);display:flex;flex-direction:column;gap:2px;">
-                    <span>PM2.5: <strong>${m.pm25.toFixed(1)}</strong> µg/m³</span>
-                    <span>PM10: <strong>${m.pm10.toFixed(1)}</strong> µg/m³</span>
-                    <span>NO₂: <strong>${m.no2.toFixed(1)}</strong> µg/m³</span>
-                    <span>CO: <strong>${m.co.toFixed(1)}</strong> µg/m³</span>
-                </div>
+                <strong>${m.name}</strong><br/>
+                AQI: ${Math.round(avg)}<br/>
+                ${activeFilters.includes('pm25')?`PM2.5: ${m.pm25.toFixed(1)} µg/m³<br/>`:""}
+                ${activeFilters.includes('pm10')?`PM10: ${m.pm10.toFixed(1)} µg/m³<br/>`:""}
+                ${activeFilters.includes('no2')?`NO₂: ${m.no2.toFixed(1)} µg/m³<br/>`:""}
+                ${activeFilters.includes('co')?`CO: ${m.co.toFixed(1)} µg/m³<br/>`:""}
             `;
             container.appendChild(div);
         });
