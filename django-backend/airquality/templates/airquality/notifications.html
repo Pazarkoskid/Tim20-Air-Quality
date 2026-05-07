@@ -17,6 +17,37 @@
   <!-- Left: settings panel + notifications list -->
   <div>
 
+    <!-- Notification settings panel (left sidebar style like screenshot) -->
+    <div class="card" style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;">⚙️ Поставки</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Приlagодете ги вашите аларми</div>
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="font-size:13px;">Праг за PM10 (µg/m³)</label>
+          <span style="font-size:13px;font-weight:700;color:var(--accent);">{{ profile.aqi_threshold|default:50 }}</span>
+        </div>
+        <input type="range" min="10" max="200" value="{{ profile.aqi_threshold|default:50 }}"
+          style="width:100%;accent-color:var(--accent);" oninput="this.previousElementSibling.querySelector('span').textContent=this.value"/>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="font-size:13px;">Праг за PM2.5 (µg/m³)</label>
+          <span style="font-size:13px;font-weight:700;color:var(--accent);">25</span>
+        </div>
+        <input type="range" min="5" max="100" value="25" style="width:100%;accent-color:var(--accent);"/>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Канали за известување</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:6px;">
+          <input type="checkbox" {% if profile.notify_push %}checked{% endif %} style="accent-color:var(--accent);"/> Push известувања
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" {% if profile.notify_email %}checked{% endif %} style="accent-color:var(--accent);"/> Е-пошта известувања
+        </label>
+      </div>
+      <a href="{% url 'settings' %}?tab=thresholds" class="btn btn-primary" style="display:block;text-align:center;font-size:13px;">Зачувај промени</a>
+    </div>
+
     <!-- Notifications list -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:15px;font-weight:700;">Неодамнешни известувања</div>
