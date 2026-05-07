@@ -238,14 +238,20 @@ def forecast_view(request):
             _, model_used = result
         forecasts = Forecast.objects.filter(forecast_time__gte=now).order_by('hours_ahead')
 
+    # Проверка: ако моделот е вчитан (глобална var), прикажи Deep Learning
     if not model_used:
-        model_used = 'статистички модел'
-    # Human-friendly label
+        import os
+        from airquality.services import AI_ARTIFACTS_DIR
+        _patched = str(AI_ARTIFACTS_DIR / 'model.keras') + '_patched.keras'
+        if os.path.exists(_patched):
+            model_used = 'Keras AI модел'
+        else:
+            model_used = 'статистички модел'
+
     if model_used and ('Keras' in model_used or 'AI' in model_used):
         model_used = 'Напреден модел за длабоко учење (Deep Learning)'
     else:
         model_used = 'Статистички модел (Deep Learning не е достапен)'
-
     labels     = json.dumps([f.forecast_time.strftime('%d.%m %H:%M') for f in forecasts])
     pred_aqi   = json.dumps([f.predicted_aqi for f in forecasts])
     pred_pm25  = json.dumps([f.predicted_pm25 or 0 for f in forecasts])
@@ -352,7 +358,8 @@ def settings_view(request):
 
         # FIX #8: change_password — use messages.add_message directly, no double message
         if action == 'change_password':
-            new_pw  = request.POST.get('new_password', '').strip()
+            list(messages.get_messages(request))  # исчисти стари пораки
+            new_pw = request.POST.get('new_password', '').strip()
             confirm = request.POST.get('confirm_password', '').strip()
             if not new_pw:
                 messages.error(request, 'Внесете нова лозинка.')
@@ -364,12 +371,8 @@ def settings_view(request):
                 request.user.set_password(new_pw)
                 request.user.save()
                 update_session_auth_hash(request, request.user)
-                # FIX #8: use storage.used flag workaround — add only once
-                # by clearing existing success messages first
-                storage = messages.get_messages(request)
-                storage.used = True
                 messages.success(request, '✅ Лозинката е успешно променета.')
-            return redirect('settings')
+            return redirect('/settings/?tab=security')
 
         # FIX #4: profile save — save User fields + UserProfile fields directly
         if action == 'profile':
