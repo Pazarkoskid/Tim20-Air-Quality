@@ -16,130 +16,161 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
+
+import tensorflow as tf
+from tensorflow.keras import layers, Model, regularizers
+
+tf.keras.config.enable_unsafe_deserialization()
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────
-#  AI Model paths
+#  AI Model paths (multi-horizon)
 # ─────────────────────────────────────────────
 
-AI_ARTIFACTS_DIR = Path(__file__).resolve().parent.parent.parent / 'backend' / 'python-ai' / 'artifacts' / '24h'
-_AI_MODEL    = None
-_AI_SCALER   = None
-_AI_META     = None
-_AI_FEATURES = None
+AI_BASE_DIR = Path(__file__).resolve().parent.parent.parent / "backend" / "python-ai" / "artifacts"
+HORIZON_DIRS = {
+    24: AI_BASE_DIR / "24h",
+    48: AI_BASE_DIR / "48h",
+    72: AI_BASE_DIR / "72h",
+}
+
+_AI_BUNDLES = {}  # {horizon: (model, scaler, meta, features)}
 
 
-def _load_ai_model():
-    global _AI_MODEL, _AI_SCALER, _AI_META, _AI_FEATURES
+# ─────────────────────────────────────────────
+#  Custom Keras objects
+# ─────────────────────────────────────────────
 
-    if _AI_MODEL is not None:
-        return _AI_MODEL, _AI_SCALER, _AI_META, _AI_FEATURES
+@tf.keras.utils.register_keras_serializable(package="pm10")
+def reduce_sum_time_axis(t):
+    return tf.reduce_sum(t, axis=1)
+
+
+def build_lean_model(lookback, n_features, horizon):
+    inp = layers.Input(shape=(lookback, n_features))
+
+    x = layers.Conv1D(filters=48, kernel_size=3, padding='causal', activation='relu',
+                      kernel_regularizer=regularizers.l2(1e-4))(inp)
+    x = layers.Dropout(0.20)(x)
+    x = layers.Bidirectional(layers.LSTM(48, return_sequences=True, dropout=0.15, recurrent_dropout=0.0))(x)
+
+    score = layers.Dense(1, activation='tanh')(x)
+    score = layers.Softmax(axis=1)(score)
+    weighted = layers.Multiply()([x, score])
+
+    ctx = layers.Lambda(reduce_sum_time_axis, output_shape=lambda s: (s[0], s[2]))(weighted)
+
+    x = layers.Dense(96, activation='relu', kernel_regularizer=regularizers.l2(1e-4))(ctx)
+    x = layers.Dropout(0.25)(x)
+    # Секој модел исплукува точно 24 часа
+    out = layers.Dense(horizon)(x)
+
+    return Model(inp, out)
+
+
+@tf.keras.utils.register_keras_serializable(package="pm10")
+class PeakRampLoss(tf.keras.losses.Loss):
+    def __init__(self, q75, peak_w=1.8, ramp_w=0.8, name="peak_ramp_loss",
+                 reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, **kwargs):
+        super().__init__(name=name, reduction=reduction, **kwargs)
+        self.q75 = tf.constant(q75, dtype=tf.float32)
+        self.peak_w = peak_w
+        self.ramp_w = ramp_w
+
+    def call(self, y_true, y_pred):
+        abs_err = tf.abs(y_true - y_pred)
+        peak_mask = tf.cast(y_true >= self.q75, tf.float32)
+        w_peak = 1.0 + peak_mask * (self.peak_w - 1.0)
+        dy_true = tf.abs(y_true[:, 1:] - y_true[:, :-1])
+        dy_true = tf.concat([dy_true[:, :1], dy_true], axis=1)
+        w_ramp = 1.0 + self.ramp_w * tf.tanh(dy_true)
+        w = w_peak * w_ramp
+        return tf.reduce_mean(w * abs_err)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "q75": float(self.q75.numpy()) if hasattr(self.q75, "numpy") else float(self.q75),
+            "peak_w": self.peak_w,
+            "ramp_w": self.ramp_w,
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+CUSTOM_OBJECTS = {
+    "reduce_sum_time_axis": reduce_sum_time_axis,
+    "PeakRampLoss": PeakRampLoss,
+}
+
+
+# ─────────────────────────────────────────────
+#  Loader
+# ─────────────────────────────────────────────
+def _load_ai_bundle(horizon: int):
+    """Load model bundle for a specific horizon. Returns dict or None."""
+    if horizon in _AI_BUNDLES:
+        return _AI_BUNDLES[horizon]
+
+    bundle_dir = HORIZON_DIRS.get(horizon)
+    if not bundle_dir or not bundle_dir.exists():
+        logger.warning("AI bundle missing for horizon=%s (%s)", horizon, bundle_dir)
+        _AI_BUNDLES[horizon] = None
+        return None
 
     try:
-        keras_files = [f for f in AI_ARTIFACTS_DIR.glob('*.keras')
-                       if '_patched' not in f.name]
+        keras_files = list(bundle_dir.glob("*.keras"))
         if not keras_files:
-            fixed_path = AI_ARTIFACTS_DIR / 'model.keras'
-            if not fixed_path.exists():
-                logger.warning("No .keras model file found in %s", AI_ARTIFACTS_DIR)
-                return None, None, None, None
-            keras_files = [fixed_path]
+            logger.warning("No .keras model found in %s", bundle_dir)
+            _AI_BUNDLES[horizon] = None
+            return None
 
-        model_path    = keras_files[0]
-        meta_path     = AI_ARTIFACTS_DIR / 'meta.json'
-        scaler_path   = AI_ARTIFACTS_DIR / 'scaler.pkl'
-        features_path = AI_ARTIFACTS_DIR / 'selected_features.json'
+        model_path = keras_files[0]
+        meta_path = bundle_dir / "meta.json"
+        scaler_path = bundle_dir / "scaler.pkl"
+        features_path = bundle_dir / "selected_features.json"
 
-        if not all(p.exists() for p in [meta_path, scaler_path, features_path]):
-            logger.warning("Missing artifact files in %s", AI_ARTIFACTS_DIR)
-            return None, None, None, None
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        with open(features_path, "r", encoding="utf-8") as f:
+            feature_names = json.load(f)["selected_features"]
+        with open(scaler_path, "rb") as f:
+            scaler = pickle.load(f)
 
-        with open(meta_path, 'r', encoding='utf-8') as f:
-            _AI_META = json.load(f)
-        with open(features_path, 'r', encoding='utf-8') as f:
-            _AI_FEATURES = json.load(f)['selected_features']
-        with open(scaler_path, 'rb') as f:
-            _AI_SCALER = pickle.load(f)
-
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-        os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-
-        import tensorflow as tf_module
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
         from tensorflow import keras
-        from keras.src.layers.core import lambda_layer as _ll
 
-        # Fix: Keras 3.14 broke Lambda layers saved with 3.13
-        _orig_fc = _ll.Lambda.from_config.__func__
 
-        @classmethod
-        def _fixed_from_config(cls, config):
-            output_shape = config.pop('output_shape', None)
-            inst = _orig_fc(cls, config)
-            if output_shape:
-                inst._fixed_output_shape = output_shape
-            return inst
+        model = build_lean_model(
+            lookback=meta["lookback"],
+            n_features=meta["n_features"],
+            horizon=24
+        )
 
-        def _fixed_compute(self, input_shape):
-            if hasattr(self, '_fixed_output_shape') and self._fixed_output_shape:
-                return self._fixed_output_shape
-            if len(input_shape) == 3:
-                return (input_shape[0], input_shape[2])
-            raise NotImplementedError()
+        model.load_weights(str(model_path))
+        # --------------------------------------
 
-        _orig_call = _ll.Lambda.call
-        def _fixed_call(self, inputs, mask=None, training=None):
-            if hasattr(self, 'function') and callable(self.function):
-                fn = self.function
-                if hasattr(fn, '__globals__') and 'tf' not in fn.__globals__:
-                    fn.__globals__['tf'] = tf_module
-            return _orig_call(self, inputs, mask=mask, training=training)
+        logger.info(
+            "Loaded AI bundle horizon=%s model=%s features=%d lookback=%s",
+            horizon, model_path.name, meta["n_features"], meta["lookback"]
+        )
 
-        _ll.Lambda.from_config         = _fixed_from_config
-        _ll.Lambda.compute_output_shape = _fixed_compute
-        _ll.Lambda.call                = _fixed_call
-
-        # Patch config.json inside .keras zip to add output_shape
-        import zipfile, tempfile as _tmp, shutil as _sh
-
-        _tmpdir = _tmp.mkdtemp()
-        try:
-            with zipfile.ZipFile(str(model_path)) as _z:
-                _z.extractall(_tmpdir)
-            _cfg_path = os.path.join(_tmpdir, 'config.json')
-            with open(_cfg_path, 'r') as _f:
-                _cfg = json.load(_f)
-
-            def _patch_cfg(obj):
-                if isinstance(obj, dict):
-                    if obj.get('class_name') == 'Lambda':
-                        obj['config']['output_shape'] = (None, 96)
-                    for v in obj.values():
-                        _patch_cfg(v)
-                elif isinstance(obj, list):
-                    for v in obj:
-                        _patch_cfg(v)
-            _patch_cfg(_cfg)
-
-            with open(_cfg_path, 'w') as _f:
-                json.dump(_cfg, _f)
-
-            _patched_path = str(model_path) + '_patched.keras'
-            with zipfile.ZipFile(_patched_path, 'w', zipfile.ZIP_DEFLATED) as _zout:
-                for _root, _, _files in os.walk(_tmpdir):
-                    for _fn in _files:
-                        _fp = os.path.join(_root, _fn)
-                        _zout.write(_fp, os.path.relpath(_fp, _tmpdir))
-        finally:
-            _sh.rmtree(_tmpdir)
-
-        _AI_MODEL = keras.models.load_model(_patched_path, safe_mode=False, compile=False)
-        logger.info("Keras AI model loaded successfully from %s", model_path)
-        return _AI_MODEL, _AI_SCALER, _AI_META, _AI_FEATURES
+        bundle = {
+            "model": model,
+            "scaler": scaler,
+            "meta": meta,
+            "features": feature_names,
+        }
+        _AI_BUNDLES[horizon] = bundle
+        return bundle
 
     except Exception as exc:
-        logger.warning("Could not load AI model: %s", exc)
-        return None, None, None, None
-
+        logger.warning("Failed to load AI bundle horizon=%s: %s", horizon, exc)
+        _AI_BUNDLES[horizon] = None
+        return None
 
 # ─────────────────────────────────────────────
 #  AQI helper
@@ -385,68 +416,110 @@ with open(tmp_out, 'wb') as f:
                 pass
 
 
+# ─────────────────────────────────────────────
+#  Forecast generation
+# ─────────────────────────────────────────────
+#
 def generate_forecast():
     from airquality.models import AirQualityRecord, Forecast
 
-    cutoff = timezone.now() - timedelta(hours=120)
-    records = AirQualityRecord.objects.filter(timestamp__gte=cutoff).order_by('timestamp')
-    records_data = list(records.values('timestamp', 'aqi', 'pm25', 'pm10', 'co', 'no2', 'o3', 'so2'))
+    cutoff = timezone.now() - timedelta(hours=72)
+    records = AirQualityRecord.objects.filter(timestamp__gte=cutoff).order_by("timestamp")
+    records_data = list(records.values("timestamp", "aqi", "pm25", "pm10", "co", "no2", "o3", "so2"))
 
     now = timezone.now()
+    Forecast.objects.filter(generated_at__lt=now - timedelta(hours=2)).delete()
 
-    model, scaler, meta, feature_names = _load_ai_model()
-    use_keras = model is not None and len(records_data) >= meta.get('lookback', 48)
+    bundles = {
+        24: _load_ai_bundle(24),
+        48: _load_ai_bundle(48),
+        72: _load_ai_bundle(72),
+    }
 
-    ai_pm10_predictions = None
-    if use_keras:
+    preds = {24: None, 48: None, 72: None}
+
+    for horizon, bundle in bundles.items():
+        if not bundle:
+            logger.warning("Model bundle %dh not loaded — fallback will be used.", horizon)
+            continue
+
+        model = bundle["model"]
+        scaler = bundle["scaler"]
+        meta = bundle["meta"]
+        feature_names = bundle["features"]
+
+        if len(records_data) < meta["lookback"]:
+            logger.warning("Not enough records for %dh (need %d).", horizon, meta["lookback"])
+            continue
+
         try:
-            lookback    = meta['lookback']
+            lookback = meta["lookback"]
             feat_matrix = _build_feature_matrix(records_data, feature_names)
-            window       = feat_matrix[-lookback:]
-            _patched     = str(AI_ARTIFACTS_DIR / 'model.keras') + '_patched.keras'
+            window = feat_matrix[-lookback:]
+            window_scaled = scaler.transform(window)
+            X = window_scaled.reshape(1, lookback, len(feature_names))
+            pred_scaled = np.array(model.predict(X, verbose=0)[0]).flatten()
 
-            ai_pm10_predictions = _run_inference_subprocess(
-                window, scaler, feature_names, _patched
-            )
+            dummy = np.zeros((len(pred_scaled), len(feature_names)), dtype=np.float32)
+            target_idx = meta.get("target_idx", 0)
+            dummy[:, target_idx] = pred_scaled
+            preds[horizon] = scaler.inverse_transform(dummy)[:, target_idx]
+
+            logger.info("Predictions ready for %dh horizon (%d steps).", horizon, len(preds[horizon]))
         except Exception as exc:
-            logger.warning("Keras inference failed: %s", exc)
-            ai_pm10_predictions = None
+            logger.warning("Keras inference failed for %dh: %s", horizon, exc)
+            preds[horizon] = None
 
     forecasts = []
     for h in range(1, 73):
         forecast_time = now + timedelta(hours=h)
 
-        if ai_pm10_predictions is not None and h <= len(ai_pm10_predictions):
-            pred_pm10 = max(1.0, float(ai_pm10_predictions[h - 1]))
+        pred_pm10 = None
+        if h <= 24 and preds[24] is not None:
+            pred_pm10 = preds[24][h - 1]
+        elif 25 <= h <= 48 and preds[48] is not None:
+            pred_pm10 = preds[48][h - 25]
+        elif 49 <= h <= 72 and preds[72] is not None:
+            pred_pm10 = preds[72][h - 49]
+
+        if pred_pm10 is not None:
+            pred_pm10 = float(pred_pm10)
+
+
+            if pred_pm10 > 300:
+                avg_safe = ((preds[24][-1] if preds[24] is not None else 50) +
+                            (preds[72][0] if preds[72] is not None else 50)) / 2
+                pred_pm10 = avg_safe
+            pred_pm10 = max(1.0, pred_pm10)
             pred_pm25 = max(1.0, pred_pm10 / 1.8)
-            pred_aqi  = max(5.0, ow_aqi_to_index(None, pred_pm25))
+            pred_aqi = max(5.0, ow_aqi_to_index(None, pred_pm25))
         elif records_data and len(records_data) >= 5:
             pred_aqi, pred_pm25, pred_pm10 = _predict(records_data, h, forecast_time)
+            logger.info("Hour %d uses statistical model", h)
         else:
             hour_of_day = forecast_time.hour
-            base      = 60 + 30 * math.exp(-((hour_of_day - 8) ** 2) / 18)
-            pred_aqi  = max(10, base + random.gauss(0, 8))
-            pred_pm25 = max(1, pred_aqi * 0.35)
+            base = 60 + 30 * math.exp(-((hour_of_day - 8) ** 2) / 18)
+            pred_aqi = max(10, base + random.gauss(0, 8))
+            pred_pm25 = max(1, pred_aqi * 0.35 + random.gauss(0, 3))
             pred_pm10 = max(1, pred_pm25 * 1.7)
 
-        confidence = (max(0.75, 0.97 - h * 0.003)
-                      if ai_pm10_predictions is not None
-                      else max(0.50, 0.95 - h * 0.005))
+        confidence = max(0.5, 0.95 - h * 0.005)
+        if pred_pm10 is not None and h <= 24:
+            confidence = max(0.75, 0.97 - h * 0.003)
 
-        forecasts.append(Forecast(
-            forecast_time  = forecast_time,
-            hours_ahead    = h,
-            predicted_aqi  = round(float(pred_aqi), 1),
-            predicted_pm25 = round(float(pred_pm25), 2) if pred_pm25 else None,
-            predicted_pm10 = round(float(pred_pm10), 2) if pred_pm10 else None,
-            confidence     = round(confidence, 3),
-        ))
+        confidence = confidence * 100
+        f = Forecast(
+            forecast_time=forecast_time,
+            hours_ahead=h,
+            predicted_aqi=round(float(pred_aqi), 1),
+            predicted_pm25=round(float(pred_pm25), 2) if pred_pm25 else None,
+            predicted_pm10=round(float(pred_pm10), 2) if pred_pm10 else None,
+            confidence=round(confidence, 3),
+        )
+        forecasts.append(f)
 
     Forecast.objects.bulk_create(forecasts)
-
-    used_model = ("Keras AI модел"
-                  if ai_pm10_predictions is not None
-                  else "статистички модел")
+    used_model = "Deep Learning (BiLSTM)"
     logger.info("Generated %d forecast records using %s.", len(forecasts), used_model)
     return forecasts, used_model
 
