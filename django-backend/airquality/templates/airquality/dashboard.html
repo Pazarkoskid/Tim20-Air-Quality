@@ -119,19 +119,19 @@
     {% if forecast_24 %}
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
       <span style="font-size:13px;color:var(--text-muted);">24ч просек</span>
-      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--sensitive);">{{ forecast_24 }}</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--sensitive);">{{ forecast_24|floatformat:0 }}</span>
     </div>
     {% endif %}
     {% if forecast_48 %}
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
       <span style="font-size:13px;color:var(--text-muted);">48ч просек</span>
-      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--moderate);">{{ forecast_48 }}</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--moderate);">{{ forecast_48|floatformat:0 }}</span>
     </div>
     {% endif %}
     {% if forecast_72 %}
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
       <span style="font-size:13px;color:var(--text-muted);">72ч просек</span>
-      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--good);">{{ forecast_72 }}</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:var(--good);">{{ forecast_72|floatformat:0 }}</span>
     </div>
     {% endif %}
     {% endfor %}

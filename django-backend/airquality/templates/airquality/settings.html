@@ -130,8 +130,8 @@
         <div id="locations-list" style="display:flex;flex-direction:column;gap:8px;">
           {% for loc in saved_locations %}
           <div id="loc-{{ loc.pk }}" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);transition:opacity .3s;">
-            <span style="font-size:18px;">📍</span>
-            <div style="flex:1;">
+            <a href="{% url 'map' %}" title="Прикажи на мапа" style="font-size:18px;text-decoration:none;cursor:pointer;">📍</a>
+            <div style="flex:1;cursor:pointer;" onclick="window.location.href='{% url 'map' %}'">
               <div style="font-size:13px;font-weight:600;">{{ loc.name }}</div>
               {% if loc.address %}<div style="font-size:12px;color:var(--text-muted);">{{ loc.address }}</div>{% endif %}
             </div>

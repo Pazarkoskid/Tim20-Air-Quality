@@ -3,8 +3,8 @@
 {% block page_title %}Известувања и Препораки{% endblock %}
 
 {% block topbar_actions %}
-<button onclick="markAllRead()" class="topbar-btn">✓ Означи сите прочитани</button>
-<button onclick="deleteAll()" class="topbar-btn" style="color:#e05050;">🗑 Избриши сите</button>
+
+
 {% endblock %}
 
 {% block content %}
@@ -20,11 +20,11 @@
     <!-- Notifications list -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:15px;font-weight:700;">Неодамнешни известувања</div>
-      <button onclick="markAllRead()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--accent);">Означи ги сите како прочитани</button>
+      <button onclick="deleteAll()" class="topbar-btn" style="color:#e05050;">🗑 Избриши сите</button>
     </div>
 
     {% for n in notifications %}
-    <div class="card" id="notif-{{ n.pk }}" style="margin-bottom:12px;padding:16px;
+    <div class="card notif-item" id="notif-{{ n.pk }}" style="margin-bottom:12px;padding:16px;
       border-left:4px solid {% if n.aqi_value and n.aqi_value > 150 %}#e05050{% elif n.aqi_value and n.aqi_value > 100 %}#f0884a{% elif n.aqi_value and n.aqi_value > 50 %}#f5c542{% else %}#3fb68b{% endif %};
       {% if not n.read %}background:var(--surface2);{% endif %}">
       <div style="display:flex;align-items:flex-start;gap:12px;">
@@ -71,10 +71,12 @@
     {% endfor %}
 
     {% if notifications %}
-    <div style="text-align:center;margin-top:12px;">
-      <button style="background:none;border:1px solid var(--border);border-radius:8px;padding:10px 24px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+    <div style="text-align:center;margin-top:12px;" id="load-more-container">
+      <button id="load-more-btn" onclick="loadMoreNotifications()"
+        style="background:none;border:1px solid var(--border);border-radius:8px;padding:10px 24px;font-size:13px;color:var(--text-muted);cursor:pointer;">
         Вчитај претходни известувања
       </button>
+      <div id="notif-count-info" style="font-size:12px;color:var(--text-muted);margin-top:6px;"></div>
     </div>
     {% endif %}
 
@@ -202,5 +204,36 @@ function deleteAll() {
     headers: { 'X-CSRFToken': '{{ csrf_token }}' }
   }).then(r => r.json()).then(d => { if (d.status === 'ok') location.reload(); });
 }
+
+// ── Notifications pagination: show 7 at a time ──
+(function() {
+  const PER_PAGE = 7;
+  const allCards = Array.from(document.querySelectorAll('.notif-item'));
+  let shown = PER_PAGE;
+
+  const btn       = document.getElementById('load-more-btn');
+  const container = document.getElementById('load-more-container');
+  const info      = document.getElementById('notif-count-info');
+
+  function update() {
+    allCards.forEach((c, i) => {
+      c.style.display = i < shown ? '' : 'none';
+    });
+    const remaining = allCards.length - shown;
+    if (remaining <= 0) {
+      if (container) container.style.display = 'none';
+    } else {
+      if (info) info.textContent = `Прикажани ${shown} од вкупно ${allCards.length} известувања`;
+    }
+  }
+
+  window.loadMoreNotifications = function() {
+    shown = Math.min(shown + PER_PAGE, allCards.length);
+    update();
+  };
+
+  // Init
+  if (allCards.length > 0) update();
+})();
 </script>
 {% endblock %}
