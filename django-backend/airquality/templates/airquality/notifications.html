@@ -34,8 +34,8 @@
         </div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px;">
-            {% if n.aqi_value and n.aqi_value > 150 %}Критично ниво на PM10 во Центар
-            {% elif n.aqi_value and n.aqi_value > 100 %}Зголемено присуство на загадувачи
+            {% if n.aqi_value and n.aqi_value > 150 %}Критично ниво на PM10
+            {% elif n.aqi_value and n.aqi_value > 60 %}Зголемено присуство на загадувачи
             {% else %}Квалитетот на воздухот е подобрен{% endif %}
           </div>
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
