@@ -7,26 +7,25 @@
   Управувајте со вашите лични информации, безбедност и преференции за известувања.
 </div>
 
-{% if messages %}
-<div style="margin-bottom:16px;">
-  {% for msg in messages %}
-  <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:8px;margin-bottom:8px;
-    {% if msg.tags == 'error' %}background:rgba(224,80,80,.1);border:1px solid rgba(224,80,80,.3);color:#e05050;
-    {% else %}background:rgba(63,182,139,.1);border:1px solid rgba(63,182,139,.3);color:#2d7a5f;{% endif %}">
-    <span>{% if msg.tags == 'error' %}❌{% else %}✅{% endif %}</span>
-    <div style="font-size:13px;font-weight:500;">{{ msg }}</div>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
+
 
 <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
 
   <!-- Sidebar profile card -->
   <div class="card" style="text-align:center;padding:24px 16px;">
-    <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;margin:0 auto 12px;border:3px solid var(--accent);position:relative;">
-      <div style="width:80px;height:80px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:32px;">
-        {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+    {% load static %}
+    <div onclick="document.getElementById('avatar-modal').style.display='flex';setTimeout(function(){pickAvatar('{{ profile.avatar|default:"avatar1" }}');},50);"
+      title="Промени профилна слика"
+      style="width:80px;height:80px;border-radius:50%;overflow:hidden;margin:0 auto 12px;border:3px solid var(--accent);position:relative;cursor:pointer;">
+      <img src="{% static 'avatars/' %}{{ profile.avatar|default:'avatar1' }}.svg"
+           id="sidebar-avatar-img"
+           style="width:80px;height:80px;border-radius:50%;object-fit:cover;"
+           alt="Avatar"/>
+      <!-- Edit overlay -->
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .2s;"
+           onmouseover="this.style.background='rgba(0,0,0,0.35)';this.querySelector('span').style.opacity='1'"
+           onmouseout="this.style.background='rgba(0,0,0,0)';this.querySelector('span').style.opacity='0'">
+        <span style="font-size:20px;opacity:0;transition:opacity .2s;">✏️</span>
       </div>
       <div style="position:absolute;bottom:4px;right:4px;width:14px;height:14px;background:#3fb68b;border-radius:50%;border:2px solid var(--surface);"></div>
     </div>
@@ -91,6 +90,8 @@
             <input type="text" name="phone" class="form-control" value="{{ profile.phone }}" placeholder="+389 7X XXX XXX"/>
           </div>
 
+
+
           <div style="display:flex;justify-content:flex-end;">
             <button type="submit" class="btn btn-primary" style="padding:10px 24px;">💾 Зачувај промени</button>
           </div>
@@ -130,8 +131,8 @@
         <div id="locations-list" style="display:flex;flex-direction:column;gap:8px;">
           {% for loc in saved_locations %}
           <div id="loc-{{ loc.pk }}" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);transition:opacity .3s;">
-            <span style="font-size:18px;">📍</span>
-            <div style="flex:1;">
+            <a href="{% url 'map' %}" title="Прикажи на мапа" style="font-size:18px;text-decoration:none;cursor:pointer;">📍</a>
+            <div style="flex:1;cursor:pointer;" onclick="window.location.href='{% url 'map' %}'">
               <div style="font-size:13px;font-weight:600;">{{ loc.name }}</div>
               {% if loc.address %}<div style="font-size:12px;color:var(--text-muted);">{{ loc.address }}</div>{% endif %}
             </div>
@@ -189,14 +190,8 @@
               <input type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %}/>
               <span style="font-size:13px;">Овозможи известувања</span>
             </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;">
-              <input type="checkbox" name="notify_push" {% if profile.notify_push %}checked{% endif %}/>
-              <span style="font-size:13px;">Push известувања</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="checkbox" name="notify_email" {% if profile.notify_email %}checked{% endif %}/>
-              <span style="font-size:13px;">Е-пошта известувања</span>
-            </label>
+
+
           </div>
 
           <div style="display:flex;justify-content:flex-end;">
@@ -232,6 +227,24 @@ document.querySelectorAll('.settings-tab').forEach(t => {
 });
 const sel = document.querySelector('select');
 if (sel) sel.className = 'form-control';
+
+function selectAvatar(name) {
+  ['avatar1','avatar2','avatar3'].forEach(a => {
+    const img = document.getElementById('av-' + a);
+    if (img) img.style.border = a === name ? '3px solid var(--accent)' : '3px solid var(--border)';
+  });
+  updateSidebarAvatar(name);
+}
+
+function updateSidebarAvatar(name) {
+  const sidebar = document.getElementById('sidebar-avatar-img');
+  if (sidebar) {
+    // Get base static URL from existing image
+    const currentSrc = sidebar.src;
+    const base = currentSrc.substring(0, currentSrc.lastIndexOf('/') + 1);
+    sidebar.src = base + name + '.svg';
+  }
+}
 
 // Delete location with instant UI feedback
 function deleteLocation(pk, csrfToken) {

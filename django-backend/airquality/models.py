@@ -10,6 +10,8 @@ class UserProfile(models.Model):
     notify_email = models.BooleanField(default=False)
     notify_push = models.BooleanField(default=True)
     phone = models.CharField(max_length=30, blank=True, default='')
+    avatar = models.CharField(max_length=20, default='avatar1', blank=True)
+    # avatar choices: 'avatar1', 'avatar2', 'avatar3'
 
     def __str__(self):
         return f'Profile of {self.user.username}'

@@ -14,7 +14,7 @@
       <label>Период</label>
       {{ form.period }}
     </div>
-    <div class="form-group" style="margin-bottom:0;" id="custom-dates" style="display:none;">
+    <div class="form-group" style="margin-bottom:0;display:none;" id="custom-dates">
       <label>Од</label>
       {{ form.date_from }}
     </div>
@@ -326,11 +326,18 @@ new Chart(document.getElementById('chartGases'), {
   plugins: [hoverLinePlugin]
 });
 
-document.querySelector('[name=period]')?.addEventListener('change', function() {
-  const show = this.value === 'custom';
-  document.getElementById('custom-dates').style.display  = show ? 'block' : 'none';
-  document.getElementById('custom-dates2').style.display = show ? 'block' : 'none';
-});
+(function() {
+  const sel = document.querySelector('[name=period]');
+  if (!sel) return;
+  function toggleDates() {
+    const show = sel.value === 'custom';
+    document.getElementById('custom-dates').style.display  = show ? 'block' : 'none';
+    document.getElementById('custom-dates2').style.display = show ? 'block' : 'none';
+  }
+  sel.addEventListener('change', toggleDates);
+  // Show on page load if custom is already selected
+  toggleDates();
+})();
 
 // ── CR-002: Ranking ──
 function rankRow(item) {
