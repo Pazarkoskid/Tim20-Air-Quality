@@ -356,9 +356,13 @@ def settings_view(request):
 
     if request.method == 'POST':
         action = request.POST.get('action', 'profile')
-        list(messages.get_messages(request))  # clear duplicates
+        # Clear ALL existing messages before adding new one
+        storage = messages.get_messages(request)
+        storage.used = True
 
         if action == 'change_password':
+            storage = messages.get_messages(request)
+            storage.used = True
             new_pw  = request.POST.get('new_password', '').strip()
             confirm = request.POST.get('confirm_password', '').strip()
             if not new_pw:
@@ -384,11 +388,18 @@ def settings_view(request):
                 request.user.email = email
             request.user.save()
             profile.phone = request.POST.get('phone', '').strip()
+            avatar = request.POST.get('avatar', '').strip()
+            if avatar in ('avatar1', 'avatar2', 'avatar3'):
+                profile.avatar = avatar
             profile.save()
-            messages.success(request, '✅ Поставките се зачувани.')
+            # Only show message for non-AJAX requests
+            if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+                messages.success(request, '✅ Поставките се зачувани.')
             return redirect('/settings/?tab=profile')
 
         if action == 'thresholds':
+            storage = messages.get_messages(request)
+            storage.used = True
             try:
                 profile.aqi_threshold = int(request.POST.get('aqi_threshold', profile.aqi_threshold))
             except (ValueError, TypeError):
