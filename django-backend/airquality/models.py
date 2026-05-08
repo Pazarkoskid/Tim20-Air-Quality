@@ -1,6 +1,3 @@
-from datetime import timedelta
-
-import numpy as np
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -12,9 +9,23 @@ class UserProfile(models.Model):
     notifications_enabled = models.BooleanField(default=True)
     notify_email = models.BooleanField(default=False)
     notify_push = models.BooleanField(default=True)
+    phone = models.CharField(max_length=30, blank=True, default='')
 
     def __str__(self):
         return f'Profile of {self.user.username}'
+
+
+class SavedLocation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_locations')
+    name = models.CharField(max_length=100)
+    address = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.user.username})'
 
 
 class AirQualityRecord(models.Model):
@@ -143,36 +154,3 @@ class Notification(models.Model):
 
     def __str__(self):
         return f'Notification for {self.user.username}: {self.message[:50]}'
-
-
-def analyze_trends(days=30):
-    from airquality.models import AirQualityRecord
-    cutoff = timezone.now() - timedelta(days=days)
-    records = AirQualityRecord.objects.filter(timestamp__gte=cutoff).order_by('timestamp')
-
-    if records.count() < 7:
-        return None
-
-    aqi_values = [r.aqi for r in records]
-
-    # Trend calculation (linear regression)
-    x = np.arange(len(aqi_values), dtype=float)
-    if len(x) > 1:
-        coeffs = np.polyfit(x, aqi_values, 1)
-        slope = coeffs[0]
-        avg_aqi = np.mean(aqi_values)
-
-        if slope > 0.1:
-            trend = "📈 Се влошува"
-        elif slope < -0.1:
-            trend = "📉 Се подобрува"
-        else:
-            trend = "➡️ Стабилно"
-
-        return {
-            'trend': trend,
-            'slope': round(slope, 4),
-            'avg_aqi': round(avg_aqi, 1),
-            'period_days': days
-        }
-    return None
