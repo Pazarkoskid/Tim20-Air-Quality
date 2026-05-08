@@ -102,10 +102,18 @@
 
   <!-- Forecast summary -->
   <div class="card" style="display:flex;flex-direction:column;gap:10px;">
-    <div class="flex items-center justify-between mb-16">
-      <div class="card-title">🔮 Прогноза 72 часа</div>
-      <a href="{% url 'forecast' %}" style="font-size:12px;color:var(--accent);text-decoration:none;">Детали →</a>
-    </div>
+<div class="flex items-center justify-between mb-16">
+  <div class="card-title">🔮 Прогноза 72 часа</div>
+  <a href="{% url 'forecast' %}"
+   style="
+      color:#a855f7;
+      text-decoration:none;
+      font-size:13px;
+      font-weight:600;
+   ">
+   Детали 
+</a>
+</div>
     {% for label, val in forecast_tiles %}
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
       <span style="font-size:13px;color:var(--text-muted);">{{ label }}</span>
