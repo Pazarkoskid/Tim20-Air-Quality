@@ -251,7 +251,7 @@ def forecast_view(request):
         forecasts = Forecast.objects.filter(forecast_time__gte=now).order_by('hours_ahead')
 
     if not model_used:
-        model_used = 'Deep Learning (BiLSTM)'
+        model_used = 'статистички модел'
 
     labels     = json.dumps([f.forecast_time.strftime('%d.%m %H:%M') for f in forecasts])
     pred_aqi   = json.dumps([f.predicted_aqi for f in forecasts])
@@ -270,12 +270,9 @@ def forecast_view(request):
     key_forecasts = list(forecasts.filter(hours_ahead__in=[6, 12, 24, 36, 48, 60, 72]))
 
     # Check if AI model is loaded
-    from airquality.services import AI_ARTIFACTS_DIR
-    import os
-    _patched = str(AI_ARTIFACTS_DIR / 'model.keras') + '_patched.keras'
-    if model_used and ('Keras' in model_used or 'AI' in model_used):
-        model_label = 'Напреден модел за длабоко учење (Deep Learning)'
-    elif os.path.exists(_patched):
+    from airquality.services import _AI_BUNDLES
+    _ai_active = any(v is not None for v in _AI_BUNDLES.values()) if _AI_BUNDLES else False
+    if _ai_active or (model_used and ('Deep' in str(model_used) or 'Keras' in str(model_used) or 'AI' in str(model_used))):
         model_label = 'Напреден модел за длабоко учење (Deep Learning)'
     else:
         model_label = 'Статистички модел (Deep Learning не е достапен)'

@@ -453,10 +453,34 @@ function updateBadge(count) {
   }
 }
 
+// ── Unified polling: badge + push ──
+var _prevUnread = {{ unread_count|default:0 }};
+
 setInterval(() => {
   fetch("{% url 'api_unread_count' %}", { credentials: 'same-origin' })
     .then(r => r.json())
-    .then(data => updateBadge(data.unread_count || 0))
+    .then(data => {
+      const count = data.unread_count || 0;
+      updateBadge(count);
+      if (count > _prevUnread) {
+        {% if user.is_authenticated and user.profile.notify_push %}
+        if ('Notification' in window && Notification.permission === 'granted') {
+          fetch("{% url 'api_current' %}", { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(rec => {
+              const aqi = rec.aqi ? Math.round(rec.aqi) : '–';
+              const label = aqi > 150 ? 'Нездрав' : aqi > 100 ? 'Умерено загаден' : aqi > 50 ? 'Умерено' : 'Добар';
+              new Notification('⚠️ Air Quality AI – Скопје', {
+                body: 'AQI: ' + aqi + ' — ' + label,
+                icon: '/static/avatars/avatar1.svg',
+                tag: 'aq-notif', renotify: true
+              });
+            }).catch(() => {});
+        }
+        {% endif %}
+      }
+      _prevUnread = count;
+    })
     .catch(() => {});
 }, 30000);
   // ── PDF export modal (available on every page) ──
@@ -680,15 +704,7 @@ function checkNewNotifications(data) {
 }
 
 // Patch the existing unread count polling
-var _origPollInterval = setInterval(function() {
-  {% if user.is_authenticated %}
-  fetch("{% url 'api_unread_count' %}")
-    .then(r => r.json())
-    .then(function(data) {
-      checkNewNotifications(data);
-    });
-  {% endif %}
-}, 30000);
+var _origPollInterval =
 </script>
 </body>
 </html>

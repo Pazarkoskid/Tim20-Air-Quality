@@ -82,6 +82,22 @@ DEBUG=True
 OPENWEATHER_API_KEY=твојот_клуч_од_openweathermap.org
 ALLOWED_HOSTS=localhost,127.0.0.1
 
+SECRET_KEY=eE8ZDZRc60m77BGL69T_TPiUnshMUz37mfD0i0gK-Cgj0JwVTZEiIkfhVRv8uV-xNrs
+DEBUG=True
+OPENWEATHER_API_KEY=7fbee9cf31b0b06d00f62d1200a954e5
+ALLOWED_HOSTS=localhost,127.0.0.1
+CITY_LAT=41.9981
+CITY_LON=21.4254
+CITY_NAME=Скопје
+#DATABASE_URL="postgresql://postgres:Trilece12345T@db.htsgplaxjvyudybcpjgc.supabase.co:5432/postgres"
+#VITE_SUPABASE_URL=https://htsgplaxjvyudybcpjgc.supabase.co
+#VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_L_i6xTwqK941Xod5w6hrPg_-xRJcr2M
+DB_NAME=postgres
+DB_USER=postgres.htsgplaxjvyudybcpjgc
+DB_HOST=aws-0-eu-west-1.pooler.supabase.com
+DB_PORT=5432
+DB_PASSWORD=Trilece12345T
+
 python -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
