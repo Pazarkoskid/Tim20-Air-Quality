@@ -27,4 +27,11 @@ urlpatterns = [
     # CR-002 & CR-003
     path('api/ranking/', views.api_ranking, name='api_ranking'),
     path('api/compare/', views.api_compare, name='api_compare'),
+    # Saved locations
+    path('settings/locations/add/', views.add_location, name='add_location'),
+    path('settings/locations/delete/<int:pk>/', views.delete_location, name='delete_location'),
+    # About / Help
+    path('about/', views.about_view, name='about'),
+
+    path('api/trends/', views.api_trends, name='api_trends'),
 ]

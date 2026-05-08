@@ -1,9 +1,9 @@
 {
-  "run_name": "pm10_lean_h25_48_20260507_180359",
-  "saved_at": "2026-05-07 18:03:59",
-  "model_path": "/content/pm10_artifacts_48h/pm10_lean_h25_48_20260507_180359.keras",
-  "scaler_path": "/content/pm10_artifacts_48h/pm10_lean_h25_48_20260507_180359_scaler.pkl",
-  "feature_importance_path": "/content/pm10_artifacts_48h/pm10_lean_h25_48_20260507_180359_feature_importance.csv",
+  "run_name": "pm10_lean_h25_48_20260331_181105",
+  "saved_at": "2026-03-31 18:11:06",
+  "model_path": "/content/pm10_artifacts_48h/pm10_lean_h25_48_20260331_181105.keras",
+  "scaler_path": "/content/pm10_artifacts_48h/pm10_lean_h25_48_20260331_181105_scaler.pkl",
+  "feature_importance_path": "/content/pm10_artifacts_48h/pm10_lean_h25_48_20260331_181105_feature_importance.csv",
   "target_col": "pm10",
   "target_idx": 0,
   "feature_cols": [
