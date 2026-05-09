@@ -69,24 +69,19 @@ Tim20-Air-Quality/
 │   ├── manage.py
 │   └── requirements.txt
 ├── backend/
-│   ├── python-ai/
-│   │   ├── artifacts/
-│   │   │   ├── 24h/                       # BiLSTM модел за 24h прогноза
-│   │   │   │   ├── model.keras
-│   │   │   │   ├── scaler.pkl
-│   │   │   │   ├── meta.json
-│   │   │   │   └── selected_features.json
-│   │   │   ├── 48h/                       # BiLSTM модел за 48h прогноза
-│   │   │   └── 72h/                       # BiLSTM модел за 72h прогноза
-│   │   ├── app.py                         # FastAPI сервис
-│   │   ├── ml_service.py
-│   │   └── routes.py
-│   └── node-backend/
-│       └── src/
-│           ├── app.js
-│           ├── controllers/
-│           ├── routes/
-│           └── services/
+│   └── python-ai/
+│       ├── artifacts/
+│       │   ├── 24h/                       # BiLSTM модел за 24h прогноза
+│       │   │   ├── model.keras
+│       │   │   ├── scaler.pkl
+│       │   │   ├── meta.json
+│       │   │   └── selected_features.json
+│       │   ├── 48h/                       # BiLSTM модел за 48h прогноза
+│       │   └── 72h/                       # BiLSTM модел за 72h прогноза
+│       ├── app.py                         # FastAPI сервис
+│       ├── ml_service.py
+│       └── routes.py
+│     
 └── README.md
 ```
 
