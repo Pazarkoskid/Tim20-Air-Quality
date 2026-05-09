@@ -212,10 +212,6 @@ Forecast.objects.all().delete()
 exit()
 ```
 
-Потоа одвори `/forecast/` во браузерот — ќе се генерираат нови прогнози со AI моделот.
-
-Алтернативно, кликни на **„🔄 Регенерирај прогноза"** копчето на Прогноза страницата.
-
 ---
 
 ## ⚙️ Конфигурација
@@ -319,18 +315,18 @@ Pillow
 
 ## 👥 Тим 20
 
-| Член | Улога |
-|------|-------|
-| Пазаркоски Даниел | Project Manager |
-| Николов Горан | Backend Developer |
-| Николов Марио | Backend Developer |
-| Ташев Душан | AI Engineer |
-| Србиноска Ана Марија | UI/UX Designer |
-| Блажевска Марија | Frontend Developer |
-| Ристова Радица | Frontend Developer |
-| Ахтаров Димитар | Database Administrator |
-| Јованчева Бојана | Technical Writer |
-| Чочороска Елеонора | QA Engineer |
+| Член | Улога                  |
+|------|------------------------|
+| Пазаркоски Даниел | Project Manager        |
+| Николов Горан | Backend Developer      |
+| Николов Марио | Backend Developer      |
+| Ташев Душан | Database Administrator |
+| Србиноска Ана Марија | UI/UX Designer         |
+| Блажевска Марија | Frontend Developer     |
+| Ристова Радица | Frontend Developer     |
+| Ахтаров Димитар | AI Engineer            |
+| Јованчева Бојана | Technical Writer       |
+| Чочороска Елеонора | QA Engineer            |
 
 ---
 
