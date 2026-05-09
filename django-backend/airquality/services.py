@@ -62,7 +62,7 @@ def build_lean_model(lookback, n_features, horizon):
 
     x = layers.Dense(96, activation='relu', kernel_regularizer=regularizers.l2(1e-4))(ctx)
     x = layers.Dropout(0.25)(x)
-    # Секој модел исплукува точно 24 часа
+    
     out = layers.Dense(horizon)(x)
 
     return Model(inp, out)
