@@ -251,7 +251,7 @@ def forecast_view(request):
         forecasts = Forecast.objects.filter(forecast_time__gte=now).order_by('hours_ahead')
 
     if not model_used:
-        model_used = 'статистички модел'
+        model_used = 'Deep Learning (BiLSTM)'
 
     labels     = json.dumps([f.forecast_time.strftime('%d.%m %H:%M') for f in forecasts])
     pred_aqi   = json.dumps([f.predicted_aqi for f in forecasts])
