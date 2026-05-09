@@ -1,121 +1,195 @@
-# 🌬 Air Quality AI – Скопје
+<div align="center">
 
-Интелигентен Django веб систем за следење, анализа и предвидување на квалитетот на воздухот во Скопје. Дел од концептот „Паметен и безбеден град".
+# 🌬️ Air Quality AI – Скопје
+
+**Интелигентен систем за следење, анализа и предвидување на квалитетот на воздухот во Скопје**
+
+[![Python](https://img.shields.io/badge/Python-3.13+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Django](https://img.shields.io/badge/Django-5.x-092e20?style=flat-square&logo=django&logoColor=white)](https://djangoproject.com)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow%20%2F%20Keras-BiLSTM-ff6f00?style=flat-square&logo=tensorflow&logoColor=white)](https://tensorflow.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-336791?style=flat-square&logo=postgresql&logoColor=white)](https://supabase.com)
+
+**Тим 20 · Управување со ИКТ проекти · 2025/2026**
+
+</div>
 
 ---
 
-## 📋 Содржина на проектот
+## 📋 Опис
+
+**Air Quality AI – Скопје** е веб апликација која во реално време ги следи нивоата на загаденост на воздухот во Скопје, визуелизира историски трендови и генерира AI прогнози за следните 72 часа преку BiLSTM невронска мрежа.
+
+---
+
+## 🗂️ Структура на проектот
 
 ```
-air_quality_django/
-├── core/                        # Django project config
-│   ├── settings.py              # Главни поставки
-│   ├── urls.py                  # Корен URL routing
-│   └── wsgi.py
-├── airquality/                  # Главна апликација
-│   ├── models.py                # БД модели (AirQualityRecord, Forecast, Notification, UserProfile)
-│   ├── views.py                 # Сите views (dashboard, map, history, forecast, notifications, settings, export/import)
-│   ├── services.py              # OpenWeather API + mock fallback + AI forecasting
-│   ├── urls.py                  # URL patterns
-│   ├── forms.py                 # Django forms (Register, Profile, HistoryFilter)
-│   ├── admin.py                 # Admin панел регистрација
-│   ├── signals.py               # Auto-create UserProfile
-│   ├── apps.py                  # AppConfig
-│   ├── templates/airquality/    # Сите HTML templates
-│   │   ├── base.html            # Sidebar + topbar layout
-│   │   ├── login.html           # Страница за најава
-│   │   ├── register.html        # Страница за регистрација
-│   │   ├── dashboard.html       # Главна контролна табла + AQI + Charts
-│   │   ├── map.html             # Leaflet.js интерактивна мапа
-│   │   ├── history.html         # Историски податоци + филтри + export
-│   │   ├── forecast.html        # AI прогноза 24/48/72 часа
-│   │   ├── notifications.html   # Известувања и AI препораки
-│   │   └── settings.html        # Профил и кориснички поставки
-│   └── management/commands/
-│       └── runscheduler.py      # APScheduler за автоматско ажурирање
-├── manage.py
-├── requirements.txt
-├── .env.example
+Tim20-Air-Quality/
+├── django-backend/
+│   ├── airquality/
+│   │   ├── management/
+│   │   │   └── commands/
+│   │   │       ├── add_test_data.py       # Генерира 360 тест записи
+│   │   │       └── runscheduler.py        # APScheduler за автоматско прибирање
+│   │   ├── migrations/
+│   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_userprofile_phone_savedlocation.py
+│   │   │   └── 0003_userprofile_avatar.py
+│   │   ├── static/
+│   │   │   ├── avatars/
+│   │   │   │   ├── avatar1.svg            # Профилни слики
+│   │   │   │   ├── avatar2.svg
+│   │   │   │   └── avatar3.svg
+│   │   │   ├── fonts/
+│   │   │   │   ├── DejaVuSans.ttf         # Кирилица во PDF
+│   │   │   │   └── DejaVuSans-Bold.ttf
+│   │   │   └── sw.js                      # Service Worker за push известувања
+│   │   ├── templates/airquality/
+│   │   │   ├── base.html                  # Главен layout (sidebar, topbar, theme)
+│   │   │   ├── login.html                 # Најава
+│   │   │   ├── register.html              # Регистрација
+│   │   │   ├── dashboard.html             # Контролна табла
+│   │   │   ├── map.html                   # Leaflet интерактивна мапа
+│   │   │   ├── history.html               # Историски податоци + пагинација
+│   │   │   ├── forecast.html              # AI прогноза 24/48/72h
+│   │   │   ├── notifications.html         # Известувања (7 по страница)
+│   │   │   ├── settings.html              # Кориснички профил + аватар
+│   │   │   └── about.html                 # AQI скала + упатство
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py                      # AirQualityRecord, Forecast, Notification, UserProfile, SavedLocation
+│   │   ├── services.py                    # Fetch, BiLSTM AI forecast, notifications, trends
+│   │   ├── signals.py
+│   │   └── urls.py
+│   ├── core/
+│   │   ├── settings.py                    # Django конфигурација + PostgreSQL
+│   │   ├── urls.py
+│   │   └── wsgi.py
+│   ├── manage.py
+│   └── requirements.txt
+├── backend/
+│   ├── python-ai/
+│   │   ├── artifacts/
+│   │   │   ├── 24h/                       # BiLSTM модел за 24h прогноза
+│   │   │   │   ├── model.keras
+│   │   │   │   ├── scaler.pkl
+│   │   │   │   ├── meta.json
+│   │   │   │   └── selected_features.json
+│   │   │   ├── 48h/                       # BiLSTM модел за 48h прогноза
+│   │   │   └── 72h/                       # BiLSTM модел за 72h прогноза
+│   │   ├── app.py                         # FastAPI сервис
+│   │   ├── ml_service.py
+│   │   └── routes.py
+│   └── node-backend/
+│       └── src/
+│           ├── app.js
+│           ├── controllers/
+│           ├── routes/
+│           └── services/
 └── README.md
 ```
 
 ---
 
-## ⚙️ Инсталација и стартување
+## ✨ Функционалности
 
-### 1. Клонирај го репото
+| Модул | Опис |
+|-------|------|
+| 📊 **Контролна табла** | Тековен AQI, загадувачи PM2.5/PM10/NO₂/CO, 24h граф, прогноза 72h |
+| 🗺️ **Интерактивна мапа** | Leaflet мапа со 9 мерни станици по општини, popup со вредности |
+| 📈 **Историја** | Филтри 24h/7d/30d/custom, JS пагинација, рангирање, споредба |
+| 🤖 **AI Прогноза** | BiLSTM модел, предвидувања 24h/48h/72h, копче за регенерирање |
+| 🔔 **Известувања** | 7 по страница, push + email при надминување на праг |
+| ⚙️ **Поставки** | Профил, аватар (3 избори), локации, прагови, промена лозинка |
+| 📤 **Извоз** | CSV (UTF-8 BOM), PDF (кирилица преку DejaVu фонт) |
+| ℹ️ **About** | AQI скала со бои, упатство, опис на загадувачи |
+
+---
+
+## 🚀 Инсталација и покренување
+
+### Барања
+
+- Python 3.13+
+- Git
+
+### 1. Клонирање
 
 ```bash
 git clone https://github.com/Pazarkoskid/Tim20-Air-Quality.git
-cd Tim20-Air-Quality
+cd Tim20-Air-Quality/django-backend
 ```
 
-### 2. Создај и активирај виртуелна средина
+
+
+### 2. Инсталирај зависности
+
+Прво инсталирај ги зависностите од главниот директориум:
 
 ```bash
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS/Linux
-source venv/bin/activate
+# Во Tim20-Air-Quality/ (главниот директориум)
+pip install -r requirements.txt
 ```
 
-### 3. Инсталирај ги зависностите
+Потоа влези во `django-backend` и продолжи оттука:
+
+```bash
+cd django-backend
+```
+
+### 3. Виртуелна средина
+
+```bash
+# Создај
+python -m venv venv
+
+# Активирај (Windows)
+venv\Scripts\activate
+
+# Активирај (macOS/Linux)
+source venv/bin/activate
+```
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Постави `.env` фајл
+### 4. Конфигурација (`.env`)
 
-```bash
-cp .env.example .env
-```
-
-Отвори `.env` и постави ги вредностите:
+Создај `django-backend/.env`:
 
 ```env
-SECRET_KEY=some-random-secret-key-here
+SECRET_KEY=твојот-secret-key
 DEBUG=True
-OPENWEATHER_API_KEY=твојот_клуч_од_openweathermap.org
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-SECRET_KEY=eE8ZDZRc60m77BGL69T_TPiUnshMUz37mfD0i0gK-Cgj0JwVTZEiIkfhVRv8uV-xNrs
-DEBUG=True
-OPENWEATHER_API_KEY=7fbee9cf31b0b06d00f62d1200a954e5
-ALLOWED_HOSTS=localhost,127.0.0.1
+OPENWEATHER_API_KEY=твојот-api-key
 CITY_LAT=41.9981
 CITY_LON=21.4254
 CITY_NAME=Скопје
-#DATABASE_URL="postgresql://postgres:Trilece12345T@db.htsgplaxjvyudybcpjgc.supabase.co:5432/postgres"
-#VITE_SUPABASE_URL=https://htsgplaxjvyudybcpjgc.supabase.co
-#VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_L_i6xTwqK941Xod5w6hrPg_-xRJcr2M
-DB_NAME=postgres
-DB_USER=postgres.htsgplaxjvyudybcpjgc
-DB_HOST=aws-0-eu-west-1.pooler.supabase.com
-DB_PORT=5432
-DB_PASSWORD=Trilece12345T
 
-python -c "import secrets; print(secrets.token_urlsafe(50))"
+# PostgreSQL / Supabase
+DB_NAME=postgres
+DB_USER=postgres.ТВОЈОТ_PROJECT_ID
+DB_PASSWORD=твојата_лозинка
+DB_HOST=aws-0-eu-central-1.pooler.supabase.com
+DB_PORT=5432
 ```
 
-> **Добивање на OpenWeather API клуч:**
-> Регистрирај се на [openweathermap.org](https://openweathermap.org/) → My API Keys → Create key.
-> Апликацијата функционира и **без** клуч — во тој случај автоматски се користат реалистични mock податоци за Скопје.
+> 💡 Генерирај `SECRET_KEY`:
+> ```bash
+> python -c "import secrets; print(secrets.token_urlsafe(50))"
+> ```
 
-### 5. Направи миграции и иницијализирај ја базата
+### 5. Миграции
 
 ```bash
-python manage.py makemigrations
 python manage.py migrate
 ```
 
-### 6. Создај superuser (admin)
+### 6. Тест податоци (опционално)
 
 ```bash
-python manage.py createsuperuser
+python manage.py add_test_data
 ```
 
 ### 7. Стартувај го серверот
@@ -124,122 +198,142 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Отвори го прелистувачот на: **http://127.0.0.1:8000**
+### ⚠️ Важно — Прв старт со AI модел
+
+При прв старт, прогнозата може да биде генерирана со статистички модел. За да се вчита BiLSTM моделот, изврши:
+
+```bash
+python manage.py shell
+```
+
+```python
+from airquality.models import Forecast
+Forecast.objects.all().delete()
+exit()
+```
+
+Потоа одвори `/forecast/` во браузерот — ќе се генерираат нови прогнози со AI моделот.
+
+Алтернативно, кликни на **„🔄 Регенерирај прогноза"** копчето на Прогноза страницата.
 
 ---
 
-## 🔄 Автоматско ажурирање на податоци (Scheduler)
+## ⚙️ Конфигурација
 
-За да се ажурираат податоците автоматски на секој час, стартувај го scheduler-от во посебен терминал:
+### Scheduler (автоматско освежување на секој час)
 
 ```bash
-pip install django-apscheduler
 python manage.py runscheduler
 ```
 
-Ова ги извршува следните задачи:
-- **На секој час (`:00`)** — зема live податоци од OpenWeather или mock и ги зачувува во базата
-- **На секои 6 часа** — генерира AI прогнози за следните 72 часа
+---
+
+## 🤖 AI Модел
+
+Системот користи **Keras BiLSTM** (Bidirectional Long Short-Term Memory) невронска мрежа.
+
+| Хоризонт | Директориум | Lookback | Излез |
+|----------|-------------|----------|-------|
+| 24 часа | `artifacts/24h/` | 48 записи | 24 предвидувања |
+| 48 часа | `artifacts/48h/` | 48 записи | 24 предвидувања |
+| 72 часа | `artifacts/72h/` | 48 записи | 24 предвидувања |
+
+**Влезни карактеристики:** PM10, PM2.5, AQI, hour_sin/cos, day_sin/cos, diff features (14 вкупно)
+
+**Fallback:** При недостаток на записи (<48) — линеарна регресија со сезонски корекции.
 
 ---
 
-## 🌐 URL структура
+## 📡 API Endpoints
 
-| URL | Опис |
-|-----|------|
-| `/` | Редирект кон dashboard |
-| `/login/` | Страница за најава |
-| `/register/` | Страница за регистрација |
-| `/dashboard/` | Главна контролна табла |
-| `/map/` | Интерактивна Leaflet.js мапа |
-| `/history/` | Историски податоци со филтри |
-| `/forecast/` | AI прогноза 24/48/72 часа |
-| `/notifications/` | Известувања и препораки |
-| `/settings/` | Профил и поставки |
-| `/export/csv/` | Извоз на CSV (последни 30 дена) |
-| `/export/pdf/` | Извоз на PDF извештај |
-| `/import/csv/` | Увоз на CSV податоци |
-| `/api/current/` | JSON — моментален запис |
-| `/api/history/?hours=24` | JSON — историски записи |
-| `/api/forecast/` | JSON — прогнози |
-| `/api/refresh/` | Рачно освежување на податоци |
-| `/admin/` | Django admin панел |
+| Метод | URL | Опис |
+|-------|-----|------|
+| `GET` | `/api/current/` | Тековен запис |
+| `GET` | `/api/history/?hours=24` | Историски записи |
+| `GET` | `/api/forecast/` | Прогнози (JSON) |
+| `GET` | `/api/refresh/` | Рачно освежување |
+| `GET` | `/api/stations/` | Вредности по општини |
+| `GET` | `/api/trends/?days=30` | Анализа на трендови |
+| `GET` | `/api/unread-count/` | Непрочитани известувања |
+| `GET` | `/api/ranking/?days=30` | Рангирање на денови |
+| `GET` | `/api/compare/` | Споредба на два периоди |
+| `POST` | `/api/regenerate-forecast/` | Избриши и регенерирај прогноза |
+| `GET` | `/export/csv/?period=7d` | Извоз во CSV |
+| `GET` | `/export/pdf/?period=7d` | Извоз во PDF |
 
 ---
 
-## 🏗 Функционалности
+## 🎨 AQI Скала
 
-### ✅ Имплементирано
-
-| # | Барање | Статус |
-|---|--------|--------|
-| 1 | Прибирање податоци преку OpenWeather Air Pollution API | ✅ |
-| 2 | Периодично ажурирање (hourly scheduler) | ✅ |
-| 3 | Складирање на PM2.5, PM10, CO, NO2, O3, SO2, NH3 | ✅ |
-| 4 | Историски податоци во SQLite база | ✅ |
-| 5 | Export во CSV | ✅ |
-| 6 | Export во PDF (ReportLab) | ✅ |
-| 7 | Import на CSV | ✅ |
-| 8 | Приказ на тековен AQI | ✅ |
-| 9 | Визуелизација преку Chart.js | ✅ |
-| 10 | Приказ на Leaflet.js мапа со станици | ✅ |
-| 11 | Преглед на историски податоци со филтри | ✅ |
-| 12 | AI модел за предвидување (линеарна регресија + сезонски корекции) | ✅ |
-| 13 | Прогнози за 24/48/72 часа | ✅ |
-| 14 | Анализа на трендови | ✅ |
-| 15 | Нотификации при надминување на праг | ✅ |
-| 16 | AI препораки за корисниците | ✅ |
-| 17 | Регистрација на корисници | ✅ |
-| 18 | Автентикација (логирање) | ✅ |
-| 19 | Персонализирани поставки | ✅ |
+| AQI | Категорија | Боја |
+|-----|-----------|------|
+| 0–50 | Добар | 🟢 |
+| 51–100 | Умерено | 🟡 |
+| 101–150 | Нездрав за чувствителни | 🟠 |
+| 151–200 | Нездрав | 🔴 |
+| 201–300 | Многу нездрав | 🟣 |
+| 301+ | Опасен | ⚫ |
 
 ---
 
-## 🛠 Технологии
+## 🗄️ База на податоци
 
-| Компонента | Технологија |
-|-----------|-------------|
-| Backend | Django 5.0 |
-| База на податоци | SQLite (лесно менлив на PostgreSQL) |
-| Scheduler | APScheduler + django-apscheduler |
-| Charts | Chart.js 4 |
-| Мapа | Leaflet.js |
-| PDF Export | ReportLab |
-| AI/ML | NumPy, Pandas, scikit-learn |
-| Надворешно API | OpenWeather Air Pollution API |
-| Frontend стил | Custom CSS (Dark theme) |
+Апликацијата користи **PostgreSQL** хостирана на **Supabase**.
+
+Главни табели:
+- `airquality_airqualityrecord` — мерења (AQI, PM2.5, PM10, NO₂, CO, O₃, SO₂)
+- `airquality_forecast` — AI прогнози
+- `airquality_notification` — известувања
+- `airquality_userprofile` — профил (праг, аватар, телефон)
+- `airquality_savedlocation` — предефинирани локации
+- `auth_user` — Django корисници
 
 ---
 
-## 🔐 Безбедност
+## 🏗️ Хостирање
 
-- Лозинките се шифрираат со `PBKDF2PasswordHasher` (Django default)
-- CSRF заштита на сите POST форми
-- Сите views бараат `@login_required`
-- `.env` фајлот **не е** во git (додаден во `.gitignore`)
+| Сервис | Платформа |
+|--------|-----------|
+| Django Backend | [Render](https://render.com) |
+| База на податоци | [Supabase](https://supabase.com) |
+| Frontend | [Vercel](https://vercel.com) |
 
 ---
 
-## 📦 Производствено деплојување
+## 📦 Главни зависности
 
-За production, промени го `.env`:
-
-```env
-DEBUG=False
-SECRET_KEY=силна-случајна-лозинка
-ALLOWED_HOSTS=твојот-домен.mk
 ```
-
-И стартувај со Gunicorn:
-
-```bash
-pip install gunicorn
-gunicorn core.wsgi:application --bind 0.0.0.0:8000
+Django==5.0.6
+tensorflow
+requests
+numpy / pandas / scikit-learn
+django-apscheduler
+reportlab
+dj-database-url
+psycopg2-binary
+python-dotenv
+Pillow
 ```
 
 ---
 
 ## 👥 Тим 20
 
-Проект за предметот **Управување со ИКТ проекти**  
-Тема: **Air Quality AI – Скопје**
+| Член | Улога |
+|------|-------|
+| Пазаркоски Даниел | Project Manager |
+| Николов Горан | Backend Developer |
+| Николов Марио | Backend Developer |
+| Ташев Душан | AI Engineer |
+| Србиноска Ана Марија | UI/UX Designer |
+| Блажевска Марија | Frontend Developer |
+| Ристова Радица | Frontend Developer |
+| Ахтаров Димитар | Database Administrator |
+| Јованчева Бојана | Technical Writer |
+| Чочороска Елеонора | QA Engineer |
+
+---
+
+<div align="center">
+  <sub>© 2026 Air Quality AI – Скопје | Тим 20 | Управување со ИКТ проекти</sub>
+</div>
